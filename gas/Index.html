@@ -478,6 +478,7 @@ body.logged-out .top-controls { display: none; }
       </label>
       <label class="check"><input type="checkbox" id="showPass"> 合言葉を表示する</label>
       <p id="passPreview" class="pass-preview" hidden></p>
+      <label id="legacyPassRow" class="check"><input type="checkbox" id="legacyPass"> 以前に日本語の合言葉で登録した方はこちら（ログイン後に英数字へ変更します）</label>
       <div id="registerFields" hidden>
         <label class="field">
           合言葉（確認のため、もう一度）
@@ -625,8 +626,11 @@ body.logged-out .top-controls { display: none; }
   <dialog id="passDialog" class="paste-dialog">
     <form id="passForm" autocomplete="off">
       <h2>合言葉を変更する</h2>
+      <p id="passForcedNote" class="legend" hidden>
+        日本語の合言葉は、共用のPCで予測変換に残るおそれがあるため、使えなくなりました。英数字の合言葉に変更してください。
+      </p>
       <p id="passNotice" class="message" role="status"></p>
-      <label class="field">
+      <label id="passCurrentRow" class="field">
         今の合言葉
         <input type="password" id="passCurrent">
       </label>
@@ -1405,6 +1409,14 @@ const SecretBox = {
 };
   </script>
   <script>
+// ===== つなぎ先の設定 =====
+// GitHub Pages など、Google の外で画面を開いたときに使う、Google 側の入口（ウェブアプリの URL）。
+// Apps Script の「デプロイを管理」に出る、/exec で終わる URL を入れる。
+// ここが空のとき、またはこのPCで試しているとき（localhost・ファイルを直接開いたとき）は、
+// Google につながず、このPCの中の「試す版」になる。
+const API_URL = "";
+  </script>
+  <script>
 // ===== 保存の窓口 =====
 // 画面（app.js）は、保存や読み込みを必ずこの store を通して行う。
 //   ・Google に載せたとき … Google 側のプログラム（Code.gs の api）とやりとりして、スプレッドシートに保存する
@@ -1419,9 +1431,17 @@ const SecretBox = {
 const IN_GOOGLE = typeof google !== "undefined" && google.script && google.script.run;
 const SESSION_KEY = "typingPractice.session"; // タブを閉じるまでだけ覚える（sessionStorage）
 
+// どこにつなぐか
+//   google … Google の URL で開いたとき（Apps Script の中の画面）
+//   remote … GitHub Pages などで開いたとき。config.js の API_URL へ直接頼む
+//   local  … このPCで試しているとき。api-local.js の「Google のまね」を使う
+const IS_LOCAL_DEV = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+const API_MODE = IN_GOOGLE ? "google" : !IS_LOCAL_DEV && API_URL ? "remote" : "local";
+
 // Google 側（または手元のまね）に頼む
 function callApi(name, payload) {
-  if (!IN_GOOGLE) return LocalApi.call(name, payload);
+  if (API_MODE === "local") return LocalApi.call(name, payload);
+  if (API_MODE === "remote") return callRemote(name, payload);
   return new Promise((resolve, reject) => {
     google.script.run
       .withSuccessHandler(resolve)
@@ -1430,13 +1450,40 @@ function callApi(name, payload) {
   });
 }
 
+// GitHub Pages などから Google 側へ頼む。
+// 「text/plain」で送ると、ブラウザの事前の問い合わせが起きず、Google 側の決まりでも受け取れる。
+// ログイン情報（Google のクッキー）は付けない（付けると Google の確認画面が返ってきてしまう）
+async function callRemote(name, payload) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: name, payload }),
+      credentials: "omit",
+      redirect: "follow",
+    });
+  } catch (e) {
+    throw new Error("Google とつながりませんでした。インターネットにつながっているか確かめてください。");
+  }
+  if (!res.ok) throw new Error(`Google から正しい答えが返りませんでした（${res.status}）。`);
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    throw new Error("Google から読めない答えが返りました。Google 側の設定を確かめてください。");
+  }
+  if (!data.ok) throw new Error(data.error);
+  return data.result;
+}
+
 // ログインの期限が切れたときのエラーかどうか
 function isSessionExpired(e) {
   return Boolean(e && String(e.message).includes("SESSION_EXPIRED"));
 }
 
 const store = {
-  inGoogle: Boolean(IN_GOOGLE),
+  mode: API_MODE,
   session: null, // { name, token, key }  key は文章の鍵
   texts: [],     // 鍵を外した文章
   results: [],   // 鍵を外した記録
@@ -1470,16 +1517,18 @@ const store = {
     await this.startSession(r, pass);
   },
 
-  async login(name, pass) {
+  // remember=false のときは、ページを開き直すとログアウトになる
+  // （以前の日本語の合言葉の人は、変更が済むまでログインを続けさせないため）
+  async login(name, pass, remember = true) {
     const proof = await SecretBox.loginProof(name, pass);
     const r = await callApi("login", { name, proof });
-    await this.startSession(r, pass);
+    await this.startSession(r, pass, remember);
   },
 
-  async startSession(r, pass) {
+  async startSession(r, pass, remember = true) {
     const key = await SecretBox.deriveKey(pass, r.keySalt);
     this.session = { name: r.name, token: r.token, key };
-    await this.rememberSession();
+    if (remember) await this.rememberSession();
     await this.loadAll();
   },
 
@@ -1777,6 +1826,10 @@ const el = {
   passForm: $("passForm"),
   passNotice: $("passNotice"),
   passCurrent: $("passCurrent"),
+  legacyPass: $("legacyPass"),
+  legacyPassRow: $("legacyPassRow"),
+  passForcedNote: $("passForcedNote"),
+  passCurrentRow: $("passCurrentRow"),
   backupBtn: $("backupBtn"),
   backupDialog: $("backupDialog"),
   backupStatus: $("backupStatus"),
@@ -2689,7 +2742,7 @@ el.pasteSaveBtn.addEventListener("click", async () => {
 
 // ===== ログイン =====
 // 画面に出す版の番号。Google に貼り直したあと、ここが新しくなっていれば貼り付けは成功
-const APP_VERSION = "2026-11-07b";
+const APP_VERSION = "2026-11-14a";
 const NEW_PASS_RULE = "合言葉は、半角の英字・数字・記号で8文字以上にしてください。日本語は使えません。";
 
 let registerMode = false; // true のときは「新しく登録」の画面
@@ -2697,6 +2750,8 @@ let registerMode = false; // true のときは「新しく登録」の画面
 function setRegisterMode(on) {
   registerMode = on;
   el.registerFields.hidden = !on;
+  el.legacyPassRow.hidden = on;
+  if (on) setLegacyPass(false);
   el.loginHeading.textContent = on ? "新しく登録" : "ログイン";
   el.loginSubmit.textContent = on ? "登録してはじめる" : "ログイン";
   el.switchModeBtn.textContent = on ? "登録ずみの方は、こちらからログイン" : "はじめての方は、こちらから新しく登録";
@@ -2720,12 +2775,24 @@ function updateLoginPreviews() {
   updatePreview(el.showPass, el.registerCode, el.registerPreview);
 }
 
+// 以前に日本語の合言葉で登録した人だけ、ログイン欄で日本語を打てるようにする
+// （ログイン後、英数字への変更が済むまで練習は使えない）
+function setLegacyPass(on) {
+  el.legacyPass.checked = on;
+  el.loginPass.type = on ? "text" : "password";
+  if (on) {
+    el.showPass.checked = false;
+    updateLoginPreviews();
+  }
+}
+
 function clearLoginFields() {
   el.loginPass.value = "";
   el.loginPass2.value = "";
   el.registerCode.value = "";
   el.showPass.checked = false;
   updateLoginPreviews();
+  setLegacyPass(false);
 }
 
 function showLogin(notice = "") {
@@ -2759,6 +2826,10 @@ el.switchModeBtn.addEventListener("click", () => setRegisterMode(!registerMode))
 el.showPass.addEventListener("change", updateLoginPreviews);
 el.loginPass.addEventListener("input", updateLoginPreviews);
 el.registerCode.addEventListener("input", updateLoginPreviews);
+el.legacyPass.addEventListener("change", () => {
+  setLegacyPass(el.legacyPass.checked);
+  el.loginPass.focus();
+});
 
 el.loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -2790,12 +2861,15 @@ el.loginForm.addEventListener("submit", async (e) => {
   }
   el.loginSubmit.disabled = true;
   setLoginNotice(registerMode ? "登録しています…" : "ログインしています…", "info");
+  // 日本語の合言葉でログインした人は、変更が済むまでログインを続けさせない
+  const mustChange = !registerMode && !SecretBox.isAscii(pass);
   try {
     if (registerMode) await store.register(name, pass, el.registerCode.value);
-    else await store.login(name, pass);
+    else await store.login(name, pass, !mustChange);
     clearLoginFields();
     setRegisterMode(false);
     enterApp();
+    if (mustChange) openPassDialog(pass);
   } catch (err) {
     setLoginNotice(err.message);
   } finally {
@@ -2808,7 +2882,14 @@ function samePass(a, b) {
 }
 
 // ===== 合言葉の変更 =====
-function openPassDialog() {
+let forcedCurrentPass = null; // 日本語の合言葉からの変更のときだけ入る（入力し直さなくて済むように）
+
+// forcedPass を渡すと、変更が終わるまで閉じられない窓になる
+function openPassDialog(forcedPass = null) {
+  forcedCurrentPass = forcedPass;
+  el.passForcedNote.hidden = !forcedPass;
+  el.passCurrentRow.hidden = Boolean(forcedPass);
+  el.passCancelBtn.textContent = forcedPass ? "ログアウトする" : "やめる";
   el.passNotice.textContent = "";
   el.passNotice.classList.remove("info");
   el.passCurrent.value = "";
@@ -2817,10 +2898,11 @@ function openPassDialog() {
   el.showNewPass.checked = false;
   updatePreview(el.showNewPass, el.passNew, el.newPassPreview);
   el.passDialog.showModal();
-  el.passCurrent.focus();
+  (forcedPass ? el.passNew : el.passCurrent).focus();
 }
 
 function closePassDialog() {
+  forcedCurrentPass = null;
   el.passCurrent.value = "";
   el.passNew.value = "";
   el.passNew2.value = "";
@@ -2837,7 +2919,19 @@ el.passChangeBtn.addEventListener("click", () => {
 el.showNewPass.addEventListener("change", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
 el.passNew.addEventListener("input", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
 
-el.passCancelBtn.addEventListener("click", closePassDialog);
+// 変更が必要なときは、Esc キーで窓を閉じられないようにする
+el.passDialog.addEventListener("cancel", (e) => {
+  if (forcedCurrentPass) e.preventDefault();
+});
+
+el.passCancelBtn.addEventListener("click", async () => {
+  if (forcedCurrentPass) {
+    await store.logout();
+    showLogin();
+  } else {
+    closePassDialog();
+  }
+});
 
 el.passForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -2845,7 +2939,7 @@ el.passForm.addEventListener("submit", async (e) => {
     el.passNotice.textContent = text;
     el.passNotice.classList.toggle("info", kind === "info");
   };
-  const current = el.passCurrent.value;
+  const current = forcedCurrentPass || el.passCurrent.value;
   const next = el.passNew.value;
   if (!SecretBox.normalizePass(current)) {
     showNotice("今の合言葉を入れてください。");
@@ -2983,10 +3077,10 @@ el.logoutBtn.addEventListener("click", async () => {
 async function init() {
   applyLayout(loadSetting("typingPracticeLayout", "sample-left"));
   applyJudge(loadSetting("typingPracticeJudge", "strict"));
-  el.localHint.hidden = store.inGoogle;
-  el.versionInfo.textContent = `画面の版：${APP_VERSION}${store.inGoogle ? "" : "（このPCで試す版）"}`;
+  el.localHint.hidden = store.mode !== "local";
+  el.versionInfo.textContent = `画面の版：${APP_VERSION}${store.mode === "local" ? "（このPCで試す版）" : ""}`;
   // Google 側の版も確かめる（貼り付けがうまくいったかの確認に使う）
-  if (store.inGoogle) {
+  if (store.mode !== "local") {
     callApi("ping", {})
       .then((r) => {
         el.versionInfo.textContent = `画面の版：${APP_VERSION}　／　Google 側の版：${r.version}`;

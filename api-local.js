@@ -58,6 +58,22 @@ const LocalApi = (() => {
         save("sessions", s);
       },
     },
+    limits: {
+      get: (key) => {
+        const v = load("limits", {})[key];
+        return v && v.until > Date.now() ? v.n : null;
+      },
+      put: (key, n) => {
+        const s = load("limits", {});
+        s[key] = { n, until: Date.now() + 15 * 60 * 1000 };
+        save("limits", s);
+      },
+      remove: (key) => {
+        const s = load("limits", {});
+        delete s[key];
+        save("limits", s);
+      },
+    },
     randomId: () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
     registerCode: () => LocalApi.REGISTER_CODE,
     now: () => new Date().toISOString(),

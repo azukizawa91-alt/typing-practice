@@ -12,9 +12,17 @@
 const IN_GOOGLE = typeof google !== "undefined" && google.script && google.script.run;
 const SESSION_KEY = "typingPractice.session"; // タブを閉じるまでだけ覚える（sessionStorage）
 
+// どこにつなぐか
+//   google … Google の URL で開いたとき（Apps Script の中の画面）
+//   remote … GitHub Pages などで開いたとき。config.js の API_URL へ直接頼む
+//   local  … このPCで試しているとき。api-local.js の「Google のまね」を使う
+const IS_LOCAL_DEV = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+const API_MODE = IN_GOOGLE ? "google" : !IS_LOCAL_DEV && API_URL ? "remote" : "local";
+
 // Google 側（または手元のまね）に頼む
 function callApi(name, payload) {
-  if (!IN_GOOGLE) return LocalApi.call(name, payload);
+  if (API_MODE === "local") return LocalApi.call(name, payload);
+  if (API_MODE === "remote") return callRemote(name, payload);
   return new Promise((resolve, reject) => {
     google.script.run
       .withSuccessHandler(resolve)
@@ -23,13 +31,40 @@ function callApi(name, payload) {
   });
 }
 
+// GitHub Pages などから Google 側へ頼む。
+// 「text/plain」で送ると、ブラウザの事前の問い合わせが起きず、Google 側の決まりでも受け取れる。
+// ログイン情報（Google のクッキー）は付けない（付けると Google の確認画面が返ってきてしまう）
+async function callRemote(name, payload) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: name, payload }),
+      credentials: "omit",
+      redirect: "follow",
+    });
+  } catch (e) {
+    throw new Error("Google とつながりませんでした。インターネットにつながっているか確かめてください。");
+  }
+  if (!res.ok) throw new Error(`Google から正しい答えが返りませんでした（${res.status}）。`);
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    throw new Error("Google から読めない答えが返りました。Google 側の設定を確かめてください。");
+  }
+  if (!data.ok) throw new Error(data.error);
+  return data.result;
+}
+
 // ログインの期限が切れたときのエラーかどうか
 function isSessionExpired(e) {
   return Boolean(e && String(e.message).includes("SESSION_EXPIRED"));
 }
 
 const store = {
-  inGoogle: Boolean(IN_GOOGLE),
+  mode: API_MODE,
   session: null, // { name, token, key }  key は文章の鍵
   texts: [],     // 鍵を外した文章
   results: [],   // 鍵を外した記録
@@ -63,16 +98,18 @@ const store = {
     await this.startSession(r, pass);
   },
 
-  async login(name, pass) {
+  // remember=false のときは、ページを開き直すとログアウトになる
+  // （以前の日本語の合言葉の人は、変更が済むまでログインを続けさせないため）
+  async login(name, pass, remember = true) {
     const proof = await SecretBox.loginProof(name, pass);
     const r = await callApi("login", { name, proof });
-    await this.startSession(r, pass);
+    await this.startSession(r, pass, remember);
   },
 
-  async startSession(r, pass) {
+  async startSession(r, pass, remember = true) {
     const key = await SecretBox.deriveKey(pass, r.keySalt);
     this.session = { name: r.name, token: r.token, key };
-    await this.rememberSession();
+    if (remember) await this.rememberSession();
     await this.loadAll();
   },
 

@@ -46,6 +46,10 @@ const el = {
   passForm: $("passForm"),
   passNotice: $("passNotice"),
   passCurrent: $("passCurrent"),
+  legacyPass: $("legacyPass"),
+  legacyPassRow: $("legacyPassRow"),
+  passForcedNote: $("passForcedNote"),
+  passCurrentRow: $("passCurrentRow"),
   backupBtn: $("backupBtn"),
   backupDialog: $("backupDialog"),
   backupStatus: $("backupStatus"),
@@ -958,7 +962,7 @@ el.pasteSaveBtn.addEventListener("click", async () => {
 
 // ===== ログイン =====
 // 画面に出す版の番号。Google に貼り直したあと、ここが新しくなっていれば貼り付けは成功
-const APP_VERSION = "2026-11-07b";
+const APP_VERSION = "2026-11-14a";
 const NEW_PASS_RULE = "合言葉は、半角の英字・数字・記号で8文字以上にしてください。日本語は使えません。";
 
 let registerMode = false; // true のときは「新しく登録」の画面
@@ -966,6 +970,8 @@ let registerMode = false; // true のときは「新しく登録」の画面
 function setRegisterMode(on) {
   registerMode = on;
   el.registerFields.hidden = !on;
+  el.legacyPassRow.hidden = on;
+  if (on) setLegacyPass(false);
   el.loginHeading.textContent = on ? "新しく登録" : "ログイン";
   el.loginSubmit.textContent = on ? "登録してはじめる" : "ログイン";
   el.switchModeBtn.textContent = on ? "登録ずみの方は、こちらからログイン" : "はじめての方は、こちらから新しく登録";
@@ -989,12 +995,24 @@ function updateLoginPreviews() {
   updatePreview(el.showPass, el.registerCode, el.registerPreview);
 }
 
+// 以前に日本語の合言葉で登録した人だけ、ログイン欄で日本語を打てるようにする
+// （ログイン後、英数字への変更が済むまで練習は使えない）
+function setLegacyPass(on) {
+  el.legacyPass.checked = on;
+  el.loginPass.type = on ? "text" : "password";
+  if (on) {
+    el.showPass.checked = false;
+    updateLoginPreviews();
+  }
+}
+
 function clearLoginFields() {
   el.loginPass.value = "";
   el.loginPass2.value = "";
   el.registerCode.value = "";
   el.showPass.checked = false;
   updateLoginPreviews();
+  setLegacyPass(false);
 }
 
 function showLogin(notice = "") {
@@ -1028,6 +1046,10 @@ el.switchModeBtn.addEventListener("click", () => setRegisterMode(!registerMode))
 el.showPass.addEventListener("change", updateLoginPreviews);
 el.loginPass.addEventListener("input", updateLoginPreviews);
 el.registerCode.addEventListener("input", updateLoginPreviews);
+el.legacyPass.addEventListener("change", () => {
+  setLegacyPass(el.legacyPass.checked);
+  el.loginPass.focus();
+});
 
 el.loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1059,12 +1081,15 @@ el.loginForm.addEventListener("submit", async (e) => {
   }
   el.loginSubmit.disabled = true;
   setLoginNotice(registerMode ? "登録しています…" : "ログインしています…", "info");
+  // 日本語の合言葉でログインした人は、変更が済むまでログインを続けさせない
+  const mustChange = !registerMode && !SecretBox.isAscii(pass);
   try {
     if (registerMode) await store.register(name, pass, el.registerCode.value);
-    else await store.login(name, pass);
+    else await store.login(name, pass, !mustChange);
     clearLoginFields();
     setRegisterMode(false);
     enterApp();
+    if (mustChange) openPassDialog(pass);
   } catch (err) {
     setLoginNotice(err.message);
   } finally {
@@ -1077,7 +1102,14 @@ function samePass(a, b) {
 }
 
 // ===== 合言葉の変更 =====
-function openPassDialog() {
+let forcedCurrentPass = null; // 日本語の合言葉からの変更のときだけ入る（入力し直さなくて済むように）
+
+// forcedPass を渡すと、変更が終わるまで閉じられない窓になる
+function openPassDialog(forcedPass = null) {
+  forcedCurrentPass = forcedPass;
+  el.passForcedNote.hidden = !forcedPass;
+  el.passCurrentRow.hidden = Boolean(forcedPass);
+  el.passCancelBtn.textContent = forcedPass ? "ログアウトする" : "やめる";
   el.passNotice.textContent = "";
   el.passNotice.classList.remove("info");
   el.passCurrent.value = "";
@@ -1086,10 +1118,11 @@ function openPassDialog() {
   el.showNewPass.checked = false;
   updatePreview(el.showNewPass, el.passNew, el.newPassPreview);
   el.passDialog.showModal();
-  el.passCurrent.focus();
+  (forcedPass ? el.passNew : el.passCurrent).focus();
 }
 
 function closePassDialog() {
+  forcedCurrentPass = null;
   el.passCurrent.value = "";
   el.passNew.value = "";
   el.passNew2.value = "";
@@ -1106,7 +1139,19 @@ el.passChangeBtn.addEventListener("click", () => {
 el.showNewPass.addEventListener("change", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
 el.passNew.addEventListener("input", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
 
-el.passCancelBtn.addEventListener("click", closePassDialog);
+// 変更が必要なときは、Esc キーで窓を閉じられないようにする
+el.passDialog.addEventListener("cancel", (e) => {
+  if (forcedCurrentPass) e.preventDefault();
+});
+
+el.passCancelBtn.addEventListener("click", async () => {
+  if (forcedCurrentPass) {
+    await store.logout();
+    showLogin();
+  } else {
+    closePassDialog();
+  }
+});
 
 el.passForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1114,7 +1159,7 @@ el.passForm.addEventListener("submit", async (e) => {
     el.passNotice.textContent = text;
     el.passNotice.classList.toggle("info", kind === "info");
   };
-  const current = el.passCurrent.value;
+  const current = forcedCurrentPass || el.passCurrent.value;
   const next = el.passNew.value;
   if (!SecretBox.normalizePass(current)) {
     showNotice("今の合言葉を入れてください。");
@@ -1252,10 +1297,10 @@ el.logoutBtn.addEventListener("click", async () => {
 async function init() {
   applyLayout(loadSetting("typingPracticeLayout", "sample-left"));
   applyJudge(loadSetting("typingPracticeJudge", "strict"));
-  el.localHint.hidden = store.inGoogle;
-  el.versionInfo.textContent = `画面の版：${APP_VERSION}${store.inGoogle ? "" : "（このPCで試す版）"}`;
+  el.localHint.hidden = store.mode !== "local";
+  el.versionInfo.textContent = `画面の版：${APP_VERSION}${store.mode === "local" ? "（このPCで試す版）" : ""}`;
   // Google 側の版も確かめる（貼り付けがうまくいったかの確認に使う）
-  if (store.inGoogle) {
+  if (store.mode !== "local") {
     callApi("ping", {})
       .then((r) => {
         el.versionInfo.textContent = `画面の版：${APP_VERSION}　／　Google 側の版：${r.version}`;

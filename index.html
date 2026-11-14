@@ -64,6 +64,7 @@
       </label>
       <label class="check"><input type="checkbox" id="showPass"> 合言葉を表示する</label>
       <p id="passPreview" class="pass-preview" hidden></p>
+      <label id="legacyPassRow" class="check"><input type="checkbox" id="legacyPass"> 以前に日本語の合言葉で登録した方はこちら（ログイン後に英数字へ変更します）</label>
       <div id="registerFields" hidden>
         <label class="field">
           合言葉（確認のため、もう一度）
@@ -211,8 +212,11 @@
   <dialog id="passDialog" class="paste-dialog">
     <form id="passForm" autocomplete="off">
       <h2>合言葉を変更する</h2>
+      <p id="passForcedNote" class="legend" hidden>
+        日本語の合言葉は、共用のPCで予測変換に残るおそれがあるため、使えなくなりました。英数字の合言葉に変更してください。
+      </p>
       <p id="passNotice" class="message" role="status"></p>
-      <label class="field">
+      <label id="passCurrentRow" class="field">
         今の合言葉
         <input type="password" id="passCurrent">
       </label>
@@ -268,6 +272,7 @@
   <script src="texts.js"></script>
   <script src="compare.js"></script>
   <script src="crypto.js"></script>
+  <script src="config.js"></script>
   <script src="storage.js"></script>
   <script src="backup.js"></script>
   <script src="app.js"></script>

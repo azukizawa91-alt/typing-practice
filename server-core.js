@@ -9,6 +9,7 @@
 //   db.update(table, change) … change(行) が返した新しい行で書きかえる（null を返した行はそのまま）
 //   hash(text)              … text から、元に戻せない印（文字列）を作る
 //   sessions.put/get/remove … ログイン中の人の「入館証」（token）を覚える。しばらくすると自動で消える
+//   limits.get/put/remove   … まちがいの回数を覚える。15分ほどで自動で消える
 //   randomId()              … ぶつからない、でたらめな文字列
 //   registerCode()          … 新しく登録するときの「登録用の合言葉」（管理者が決める）
 //   now()                   … 今の日時（ISO 形式の文字列）
@@ -16,7 +17,7 @@
 // ★大事な決まり: どの処理も、必ず「入館証の持ち主」の行だけを読み書きする。
 //   ブラウザ側から別の人の名前を送られても、ここで持ち主を決めるので、他の人のデータは出ない。
 
-var CODE_VERSION = "2026-11-07b";
+var CODE_VERSION = "2026-11-14a";
 
 // 表の形
 //   fields … プログラムの中で使う名前（列の順番もこのとおり）
@@ -61,6 +62,10 @@ var TABLES = {
 };
 
 // 書きこみをする処理（Google 側では、同時に書きこんでもこわれないように順番待ちをする）
+// まちがいが何回続いたら止めるか
+var LOGIN_FAIL_LIMIT = 5;
+var REGISTER_FAIL_LIMIT = 20;
+
 var WRITE_ACTIONS = ["register", "addText", "addTexts", "deleteText", "addResult", "deleteResult", "changePass", "markExported"];
 
 // 利用者名をそろえる（全角/半角・前後の空白・英字の大文字小文字のちがいをなくす）
@@ -124,7 +129,13 @@ function createServer(deps) {
       if (!p.proof) fail("合言葉を入れてください。");
       var code = deps.registerCode();
       if (!code) fail("登録用の合言葉が、まだ設定されていません。管理者に連絡してください。");
+      // 登録用の合言葉を次々に試されないように、まちがいが続いたら、しばらく誰も登録できなくする
+      var regFails = Number(deps.limits.get("register") || 0);
+      if (regFails >= REGISTER_FAIL_LIMIT) {
+        fail("登録用の合言葉のまちがいが続いたため、しばらく（15分ほど）登録できません。");
+      }
       if (String(p.registerCode || "").normalize("NFKC").trim() !== String(code).normalize("NFKC").trim()) {
+        deps.limits.put("register", regFails + 1);
         fail("登録用の合言葉がちがいます。");
       }
       if (findUser(name)) fail("その利用者名は、もう使われています。別の名前にしてください。");
@@ -141,11 +152,19 @@ function createServer(deps) {
       return startSession(user);
     },
 
+    // 合言葉を続けてまちがえたら、その利用者名でしばらくログインできなくする（次々に試されるのを防ぐ）
     login: function (p) {
+      var key = "login:" + normalizeUserName(p.name);
+      var fails = Number(deps.limits.get(key) || 0);
+      if (fails >= LOGIN_FAIL_LIMIT) {
+        fail("合言葉を続けてまちがえたため、しばらく（15分ほど）ログインできません。時間をおいてから、もう一度試してください。");
+      }
       var user = findUser(p.name);
       if (!user || deps.hash(user.salt + p.proof) !== user.proofHash) {
+        deps.limits.put(key, fails + 1);
         fail("利用者名か合言葉がちがいます。");
       }
+      deps.limits.remove(key);
       return startSession(user);
     },
 

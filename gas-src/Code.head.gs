@@ -15,6 +15,19 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
+// GitHub Pages など、Google の外に置いた画面から呼ばれる入口。
+// 送られてくるのは {"action": 操作の名前, "payload": 中身} という文字。答えも文字（JSON）で返す
+function doPost(e) {
+  var out;
+  try {
+    var req = JSON.parse(e.postData.contents);
+    out = { ok: true, result: api(req.action, req.payload) };
+  } catch (err) {
+    out = { ok: false, error: String((err && err.message) || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
 // 画面から呼ばれる、ただ一つの入口。name で操作を選ぶ
 function api(name, payload) {
   var server = createServer(gasDeps());
@@ -144,6 +157,12 @@ function gasDeps() {
       put: function (token, name) { cache.put("s:" + token, name, 21600); },
       get: function (token) { return cache.get("s:" + token); },
       remove: function (token) { cache.remove("s:" + token); },
+    },
+    limits: {
+      // まちがいの回数は15分で自動的に消える
+      get: function (key) { return cache.get("l:" + key); },
+      put: function (key, n) { cache.put("l:" + key, String(n), 900); },
+      remove: function (key) { cache.remove("l:" + key); },
     },
     randomId: function () {
       return Utilities.getUuid().replace(/-/g, "");
