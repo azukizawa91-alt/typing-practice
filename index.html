@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>タイピング練習</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>タイピング練習</h1>
+    <div id="topControls" class="top-controls">
+    <label class="text-select">
+      練習する文章
+      <select id="textSelect"></select>
+    </label>
+    <button type="button" id="randomBtn" class="secondary" title="同じ段階の文章から、ほかの1つを選びます">おまかせ</button>
+    <button type="button" id="saveTextBtn" hidden>この文章を保存</button>
+    <button type="button" id="deleteTextBtn" class="secondary" hidden>この文章を削除</button>
+    <button type="button" id="pasteOpenBtn">自分の文章を貼り付ける</button>
+    <button type="button" id="historyBtn" class="secondary">記録を見る</button>
+    <button type="button" id="backupBtn" class="secondary">文章の控え</button>
+    <label class="text-select">
+      判定
+      <select id="judgeSelect">
+        <option value="strict">きびしい（すべてミス）</option>
+        <option value="lenient">ゆるい（全角/半角などは数えない）</option>
+      </select>
+    </label>
+    <label class="text-select">
+      配置
+      <select id="layoutSelect">
+        <option value="sample-left">左：見本　右：入力</option>
+        <option value="input-left">左：入力　右：見本</option>
+        <option value="sample-top">上：見本　下：入力</option>
+        <option value="input-top">上：入力　下：見本</option>
+      </select>
+    </label>
+    <span class="user-area">
+      <span id="userName" class="user-name"></span>
+      <button type="button" id="passChangeBtn" class="secondary">合言葉の変更</button>
+      <button type="button" id="logoutBtn" class="secondary">ログアウト</button>
+    </span>
+    </div>
+  </header>
+
+  <!-- ログイン画面 -->
+  <main id="loginView" class="login-view" hidden>
+    <form id="loginForm" class="login-box" autocomplete="off">
+      <p id="localHint" class="local-banner" hidden>
+        <strong>これは、このPCで試すための開発用の画面です。</strong><br>
+        Googleに登録した利用者名と合言葉では、ログインできません。ふだん使うときは、アプリのURLから開いてください。<br>
+        （試すときの登録用の合言葉：れんしゅう）
+      </p>
+      <h2 id="loginHeading">ログイン</h2>
+      <p id="loginNotice" class="message" role="status"></p>
+      <label class="field">
+        利用者名（ニックネーム）
+        <input type="text" id="loginName" maxlength="20">
+      </label>
+      <label class="field">
+        合言葉
+        <input type="password" id="loginPass">
+      </label>
+      <label class="check"><input type="checkbox" id="showPass"> 合言葉を表示する</label>
+      <p id="passPreview" class="pass-preview" hidden></p>
+      <div id="registerFields" hidden>
+        <label class="field">
+          合言葉（確認のため、もう一度）
+          <input type="password" id="loginPass2">
+        </label>
+        <label class="field">
+          登録用の合言葉（管理者から聞いたもの）
+          <input type="password" id="registerCode">
+        </label>
+        <p id="registerPreview" class="pass-preview" hidden></p>
+        <p class="legend">
+          利用者名は、本名ではなくニックネームにしてください（利用者名は管理者からも見えます）。<br>
+          合言葉は、<strong>半角の英字・数字・記号で8文字以上</strong>にしてください。日本語は使えません。
+          英字の大文字と小文字は区別します。
+          自分の名前や誕生日など、周りの人が知っていることは使わないでください。<br>
+          ★合言葉を忘れると、保存した文章は誰にも戻せません（管理者にも戻せません）。
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="submit" id="loginSubmit">ログイン</button>
+      </div>
+      <p><button type="button" id="switchModeBtn" class="link-button">はじめての方は、こちらから新しく登録</button></p>
+      <p class="legend">共用のPCでは、使い終わったら「ログアウト」を押すか、タブを閉じてください。</p>
+      <p id="versionInfo" class="version"></p>
+    </form>
+  </main>
+
+  <!-- 練習画面 -->
+  <main id="practiceView" class="practice-view">
+    <div id="panes" class="panes" data-layout="sample-left">
+      <section class="pane">
+        <div class="pane-head">
+          <span class="pane-title">見本</span>
+          <span id="sampleInfo" class="pane-note"></span>
+        </div>
+        <div id="sample" class="sample"></div>
+      </section>
+      <section class="pane">
+        <div class="pane-head">
+          <span class="pane-title">入力</span>
+          <span class="pane-note">貼り付けはできません</span>
+        </div>
+        <textarea id="input" class="input" spellcheck="false" autocomplete="off"
+          placeholder="ここに入力します。最初の1文字を打つと、時間を計り始めます。"></textarea>
+      </section>
+    </div>
+
+    <div class="controls">
+      <span id="phase" class="phase">準備OK</span>
+      <span id="timer" class="timer">0:00</span>
+      <span id="message" class="message" role="status"></span>
+      <button type="button" id="resetBtn" class="secondary">やりなおす</button>
+      <button type="button" id="finishBtn">終了（Ctrl+Enter）</button>
+    </div>
+  </main>
+
+  <!-- 結果画面 -->
+  <main id="resultView" class="result-view" hidden>
+    <div class="result-head">
+      <h2>結果：<span id="resultTitle"></span> <span id="resultJudge" class="judge-tag"></span> <span id="resultStatus" class="status-tag" hidden></span></h2>
+      <div class="result-actions">
+        <button type="button" id="againBtn">同じ文章でもう一度</button>
+      </div>
+    </div>
+    <p id="saveStatus" class="save-status" role="status"></p>
+
+    <div id="stats" class="stats"></div>
+    <p id="restNote" class="rest-note" hidden></p>
+    <p id="compareNote" class="compare-note" hidden></p>
+
+    <h3>この文章の過去の記録</h3>
+    <div id="textHistory"></div>
+
+    <h3>見本との照らし合わせ</h3>
+    <p class="legend">
+      同じ番号どうしが対応しています。番号や一覧の行にマウスを乗せると、両方が強調されます。<br>
+      <span class="d-miss">赤</span> 見本で、正しく打てなかった文字　
+      <span class="d-extra">黄</span> 入力で、まちがえて打った文字　
+      <span class="d-rest">灰色</span> 最後に打たなかった部分
+      <span class="d-soft">点線</span> ゆるい判定で数えなかったちがい<br>
+      ␣＝半角スペース　□＝全角スペース　↵＝改行　→＝タブ
+    </p>
+    <div id="compare" class="compare">
+      <section class="compare-pane">
+        <div class="pane-head"><span class="pane-title">見本</span></div>
+        <div id="compareSample" class="compare-body"></div>
+      </section>
+      <section class="compare-pane">
+        <div class="pane-head"><span class="pane-title">入力</span></div>
+        <div id="compareInput" class="compare-body"></div>
+      </section>
+    </div>
+
+    <h3>まちがいの一覧</h3>
+    <p id="kindSummary" class="kind-summary"></p>
+    <div id="mistakeList"></div>
+  </main>
+
+  <!-- 記録の一覧 -->
+  <main id="historyView" class="result-view" hidden>
+    <div class="result-head">
+      <h2>記録の一覧</h2>
+      <div class="result-actions">
+        <button type="button" id="historyBackBtn">練習に戻る</button>
+      </div>
+    </div>
+    <p class="legend">
+      新しい順に並んでいます。ここに出るのは、あなたの記録だけです（ほかの利用者からは見えません）。
+    </p>
+    <p id="historySummary" class="kind-summary"></p>
+    <div id="historyList"></div>
+  </main>
+
+  <!-- 文章の控えの窓（書き出し・まとめて読み込み） -->
+  <dialog id="backupDialog" class="paste-dialog">
+    <h2>文章の控え</h2>
+    <p id="backupStatus" class="kind-summary"></p>
+    <p id="backupNotice" class="message" role="status"></p>
+
+    <h3>書き出す</h3>
+    <p class="legend">
+      保存した文章を、1つのテキストファイルにまとめます。合言葉を忘れたときに、文章を戻すための控えです。<br>
+      ★<strong>このファイルには鍵がかかっていません。</strong>自分のGoogleドライブなど、他の人に見られない場所にしまい、共用のPCからは消してください。
+    </p>
+    <p><button type="button" id="backupExportBtn">文章を書き出す</button></p>
+    <details id="backupManual" hidden>
+      <summary>ファイルが保存されないときはこちら</summary>
+      <p class="legend">下の文字を全部コピーして、メモ帳に貼り付けて保存してください。</p>
+      <textarea id="backupText" class="backup-text" rows="8" readonly></textarea>
+    </details>
+
+    <h3>まとめて読み込む</h3>
+    <p class="legend">書き出したファイルから、文章を戻します。同じ本文の文章は、重ねて保存しません。</p>
+    <label class="field">
+      書き出したファイルを選ぶ（.txt）
+      <input type="file" id="backupFile" accept=".txt,text/plain">
+    </label>
+
+    <div class="dialog-actions">
+      <button type="button" id="backupCloseBtn" class="secondary">閉じる</button>
+    </div>
+  </dialog>
+
+  <!-- 合言葉を変更する窓 -->
+  <dialog id="passDialog" class="paste-dialog">
+    <form id="passForm" autocomplete="off">
+      <h2>合言葉を変更する</h2>
+      <p id="passNotice" class="message" role="status"></p>
+      <label class="field">
+        今の合言葉
+        <input type="password" id="passCurrent">
+      </label>
+      <label class="field">
+        新しい合言葉（半角の英字・数字・記号で8文字以上）
+        <input type="password" id="passNew">
+      </label>
+      <label class="field">
+        新しい合言葉（確認のため、もう一度）
+        <input type="password" id="passNew2">
+      </label>
+      <label class="check"><input type="checkbox" id="showNewPass"> 新しい合言葉を表示する</label>
+      <p id="newPassPreview" class="pass-preview" hidden></p>
+      <p class="legend">
+        保存した文章と記録は、そのまま残ります。変更には少し時間がかかります。<br>
+        ★新しい合言葉は、自分だけが見る場所にメモしてください。忘れると、保存した文章は戻せません。
+      </p>
+      <div class="dialog-actions">
+        <button type="button" id="passCancelBtn" class="secondary">やめる</button>
+        <button type="submit" id="passSubmitBtn">変更する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 自分の文章を貼り付ける窓 -->
+  <dialog id="pasteDialog" class="paste-dialog">
+    <form method="dialog" id="pasteForm">
+      <h2>自分の文章を貼り付ける</h2>
+      <label class="field">
+        タイトル（なくても大丈夫です）
+        <input type="text" id="pasteTitle" maxlength="60">
+      </label>
+      <div class="field">
+        テキストファイルから読み込む（.txt）
+        <input type="file" id="pasteFile" accept=".txt,text/plain">
+      </div>
+      <label class="field">
+        練習したい文章（貼り付けるか、テキストファイルをここにドラッグしても読み込めます）
+        <textarea id="pasteBody" rows="12"></textarea>
+      </label>
+      <p class="dialog-note"><span id="pasteCount">0</span>文字（4,000文字まで）　<span id="pasteMessage" class="message"></span></p>
+      <div class="dialog-actions">
+        <button type="button" id="pasteCancelBtn" class="secondary">やめる</button>
+        <button type="button" id="pasteUseBtn" class="secondary">保存せずに練習する</button>
+        <button type="button" id="pasteSaveBtn">保存して練習する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- data-local がついたものは、このPCで試すときだけ使う（Google に貼る Index.html には入らない） -->
+  <script src="server-core.js" data-local></script>
+  <script src="api-local.js" data-local></script>
+  <script src="texts.js"></script>
+  <script src="compare.js"></script>
+  <script src="crypto.js"></script>
+  <script src="storage.js"></script>
+  <script src="backup.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

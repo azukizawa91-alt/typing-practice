@@ -1,0 +1,3008 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>タイピング練習</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #1f2328;
+  --text-sub: #545b64;
+  --border: #c9ced6;
+  --accent: #1f5fbf;
+  --accent-text: #ffffff;
+  --miss-bg: #fde3e3;
+  --miss-text: #a3121f;
+  --extra-bg: #fff0c2;
+  --extra-text: #6b4300;
+  --rest-text: #5a606b;
+  --font: "BIZ UDGothic", "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* hidden を付けた部分は、下の display 指定より優先して必ず隠す */
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+}
+
+button, select, input, textarea { font: inherit; color: inherit; }
+
+button {
+  padding: 6px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+button.secondary { background: var(--surface); color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, select:focus-visible { outline: 3px solid #8fb4ee; outline-offset: 1px; }
+
+select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+/* ===== 上の帯 ===== */
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: 18px; margin: 0 8px 0 0; }
+.top-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  flex: 1;
+}
+/* ログインしていないときは、上の帯の操作ボタンを隠す */
+body.logged-out .top-controls { display: none; }
+.user-area { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.user-name { font-size: 15px; color: var(--text-sub); }
+
+/* ===== ログイン画面 ===== */
+.login-view {
+  flex: 1;
+  overflow: auto;
+  padding: 24px 16px;
+}
+.login-box {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+}
+.login-box h2 { font-size: 20px; margin: 0 0 8px; }
+.login-box .message { display: block; min-height: 1.6em; margin: 0 0 8px; }
+.field input[type="text"], .field input[type="password"] { font-size: 17px; }
+.check { display: flex; align-items: center; gap: 6px; margin: -4px 0 12px; font-size: 15px; }
+.link-button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  padding: 0;
+  text-decoration: underline;
+}
+.version { font-size: 13px; color: var(--text-sub); margin: 12px 0 0; }
+/* 合言葉の確認表示。入力欄は隠したまま、ここに文字を見せる（日本語入力を働かせないため） */
+.pass-preview {
+  margin: -6px 0 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #eef0f3;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+/* HTMLファイルを直接開いたときの注意 */
+.local-banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 2px solid var(--miss-text);
+  border-radius: 8px;
+  background: var(--miss-bg);
+  color: var(--text);
+  font-size: 15px;
+}
+.save-status { margin: 4px 0 0; font-size: 15px; color: var(--text-sub); min-height: 1.6em; }
+.save-status.error { color: var(--miss-text); }
+.save-status button { margin-left: 8px; padding: 2px 10px; font-size: 14px; }
+.text-select { display: flex; align-items: center; gap: 8px; }
+
+/* ===== 練習画面 ===== */
+.practice-view {
+  flex: 1;
+  min-height: 0;          /* 中の欄だけをスクロールさせ、ページ全体はスクロールさせない */
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  gap: 10px;
+}
+
+.panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+/* 配置：HTML では「見本 → 入力」の順に並んでいるので、reverse で入れかえる */
+.panes[data-layout="sample-left"] { flex-direction: row; }
+.panes[data-layout="input-left"]  { flex-direction: row-reverse; }
+.panes[data-layout="sample-top"]  { flex-direction: column; }
+.panes[data-layout="input-top"]   { flex-direction: column-reverse; }
+
+.pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pane-title { font-weight: bold; }
+.pane-note { font-size: 14px; color: var(--text-sub); }
+
+/* 見本と入力は同じ文字の大きさ・行間にそろえる */
+.sample, .input {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--font);
+  font-size: 19px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.input {
+  width: 100%;
+  border: none;
+  border-radius: 0 0 8px 8px;
+  resize: none;
+  background: var(--surface);
+  tab-size: 4;
+}
+.input:focus { outline: 3px solid #8fb4ee; outline-offset: -3px; }
+.input[readonly] { background: #eef0f3; }
+.sample { tab-size: 4; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.phase {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #e3e7ee;
+  font-size: 14px;
+}
+.phase.typing { background: #d7f0dd; color: #14532d; }
+.timer { font-size: 20px; font-variant-numeric: tabular-nums; min-width: 4em; }
+.message { flex: 1; color: var(--miss-text); font-size: 15px; }
+.message.info { color: #14532d; }
+
+/* ===== 結果画面 ===== */
+.result-view {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px 32px;
+}
+.result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.result-head h2 { font-size: 20px; margin: 4px 0; }
+.result-view h3 { font-size: 17px; margin: 20px 0 6px; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.stat-label { font-size: 14px; color: var(--text-sub); }
+.stat-value { font-size: 24px; font-weight: bold; font-variant-numeric: tabular-nums; }
+.stat-unit { font-size: 14px; font-weight: normal; margin-left: 2px; }
+.stat-note { font-size: 13px; color: var(--text-sub); }
+
+.rest-note {
+  margin: 10px 0 0;
+  padding: 6px 12px;
+  border-left: 4px solid var(--rest-text);
+  background: var(--surface);
+}
+
+.legend { font-size: 14px; color: var(--text-sub); margin: 0 0 6px; }
+
+/* 前回との比べ */
+.compare-note {
+  margin: 10px 0 0;
+  padding: 6px 12px;
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+}
+.compare-note .best { font-weight: bold; color: #14532d; }
+
+/* 記録の表 */
+.history-table {
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: 15px;
+}
+.history-table th, .history-table td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.history-table th { background: #eceff3; }
+.history-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.history-table tr.current td { background: #e3ecfa; font-weight: bold; }
+/* 途中終了の記録は灰色にして、完了した記録と見分けやすくする */
+.history-table tr.incomplete td { color: var(--text-sub); background: #f1f2f4; }
+.history-table tr.incomplete.current td { background: #dde3ec; }
+.status-tag {
+  font-size: 14px;
+  font-weight: normal;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fde3e3;
+  color: var(--miss-text);
+  vertical-align: middle;
+}
+.history-table button { padding: 2px 10px; font-size: 14px; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+
+/* 照らし合わせ：見本と入力を左右に並べる */
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+/* 練習で入力を先（左・上）にしている人は、照らし合わせも入力を左にする */
+.compare.input-first .compare-pane:first-child { order: 2; }
+.compare-pane {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.compare-body {
+  padding: 12px 14px;
+  font-size: 19px;
+  line-height: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+.d-miss {
+  background: var(--miss-bg);
+  color: var(--miss-text);
+  text-decoration: underline;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+/* まちがいの番号（見本と入力と一覧で同じ番号） */
+.err-no {
+  display: inline-block;
+  min-width: 1.5em;
+  margin: 0 2px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #3b4250;
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  vertical-align: 0.35em;
+  font-weight: bold;
+  cursor: default;
+}
+/* ゆるい判定で数えなかったちがい：色は付けず点線だけ */
+.d-soft {
+  text-decoration: underline dotted #3b4250 2px;
+  text-underline-offset: 4px;
+}
+.err-no.soft { background: #e3e7ee; color: var(--text); }
+.judge-tag {
+  font-size: 14px;
+  font-weight: normal;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #e3e7ee;
+  vertical-align: middle;
+}
+.active.d-miss, .active.d-extra, .active.d-soft { outline: 3px solid #1f5fbf; }
+.active.err-no { background: #1f5fbf; color: #ffffff; }
+.mistake-table tr.active td { background: #e3ecfa; }
+.mistake-table tbody tr { cursor: pointer; }
+.kind-summary { margin: 0 0 8px; }
+.d-extra {
+  background: var(--extra-bg);
+  color: var(--extra-text);
+  text-decoration: underline;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+.d-rest { color: var(--rest-text); background: #eceef1; border-radius: 3px; }
+
+.mistake-table {
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: 16px;
+}
+.mistake-table th, .mistake-table td {
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+.mistake-table th { background: #eceff3; }
+.mistake-table td.num { text-align: right; }
+
+/* ===== 貼り付けの窓 ===== */
+.paste-dialog {
+  width: min(720px, calc(100vw - 32px));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  background: var(--surface);
+  color: var(--text);
+}
+.paste-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.paste-dialog h2 { font-size: 18px; margin: 0 0 12px; }
+.paste-dialog h3 { font-size: 16px; margin: 16px 0 6px; }
+.paste-dialog .message { display: block; min-height: 1.6em; }
+.backup-text { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field input, .field textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.field textarea { resize: vertical; line-height: 1.7; }
+.dialog-note { font-size: 14px; color: var(--text-sub); margin: 0 0 12px; display: flex; gap: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* 狭い画面では、左右配置でも上下に並べる */
+@media (max-width: 700px) {
+  .panes[data-layout="sample-left"] { flex-direction: column; }
+  .panes[data-layout="input-left"]  { flex-direction: column-reverse; }
+  .compare { grid-template-columns: 1fr; }
+}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>タイピング練習</h1>
+    <div id="topControls" class="top-controls">
+    <label class="text-select">
+      練習する文章
+      <select id="textSelect"></select>
+    </label>
+    <button type="button" id="randomBtn" class="secondary" title="同じ段階の文章から、ほかの1つを選びます">おまかせ</button>
+    <button type="button" id="saveTextBtn" hidden>この文章を保存</button>
+    <button type="button" id="deleteTextBtn" class="secondary" hidden>この文章を削除</button>
+    <button type="button" id="pasteOpenBtn">自分の文章を貼り付ける</button>
+    <button type="button" id="historyBtn" class="secondary">記録を見る</button>
+    <button type="button" id="backupBtn" class="secondary">文章の控え</button>
+    <label class="text-select">
+      判定
+      <select id="judgeSelect">
+        <option value="strict">きびしい（すべてミス）</option>
+        <option value="lenient">ゆるい（全角/半角などは数えない）</option>
+      </select>
+    </label>
+    <label class="text-select">
+      配置
+      <select id="layoutSelect">
+        <option value="sample-left">左：見本　右：入力</option>
+        <option value="input-left">左：入力　右：見本</option>
+        <option value="sample-top">上：見本　下：入力</option>
+        <option value="input-top">上：入力　下：見本</option>
+      </select>
+    </label>
+    <span class="user-area">
+      <span id="userName" class="user-name"></span>
+      <button type="button" id="passChangeBtn" class="secondary">合言葉の変更</button>
+      <button type="button" id="logoutBtn" class="secondary">ログアウト</button>
+    </span>
+    </div>
+  </header>
+
+  <!-- ログイン画面 -->
+  <main id="loginView" class="login-view" hidden>
+    <form id="loginForm" class="login-box" autocomplete="off">
+      <p id="localHint" class="local-banner" hidden>
+        <strong>これは、このPCで試すための開発用の画面です。</strong><br>
+        Googleに登録した利用者名と合言葉では、ログインできません。ふだん使うときは、アプリのURLから開いてください。<br>
+        （試すときの登録用の合言葉：れんしゅう）
+      </p>
+      <h2 id="loginHeading">ログイン</h2>
+      <p id="loginNotice" class="message" role="status"></p>
+      <label class="field">
+        利用者名（ニックネーム）
+        <input type="text" id="loginName" maxlength="20">
+      </label>
+      <label class="field">
+        合言葉
+        <input type="password" id="loginPass">
+      </label>
+      <label class="check"><input type="checkbox" id="showPass"> 合言葉を表示する</label>
+      <p id="passPreview" class="pass-preview" hidden></p>
+      <div id="registerFields" hidden>
+        <label class="field">
+          合言葉（確認のため、もう一度）
+          <input type="password" id="loginPass2">
+        </label>
+        <label class="field">
+          登録用の合言葉（管理者から聞いたもの）
+          <input type="password" id="registerCode">
+        </label>
+        <p id="registerPreview" class="pass-preview" hidden></p>
+        <p class="legend">
+          利用者名は、本名ではなくニックネームにしてください（利用者名は管理者からも見えます）。<br>
+          合言葉は、<strong>半角の英字・数字・記号で8文字以上</strong>にしてください。日本語は使えません。
+          英字の大文字と小文字は区別します。
+          自分の名前や誕生日など、周りの人が知っていることは使わないでください。<br>
+          ★合言葉を忘れると、保存した文章は誰にも戻せません（管理者にも戻せません）。
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="submit" id="loginSubmit">ログイン</button>
+      </div>
+      <p><button type="button" id="switchModeBtn" class="link-button">はじめての方は、こちらから新しく登録</button></p>
+      <p class="legend">共用のPCでは、使い終わったら「ログアウト」を押すか、タブを閉じてください。</p>
+      <p id="versionInfo" class="version"></p>
+    </form>
+  </main>
+
+  <!-- 練習画面 -->
+  <main id="practiceView" class="practice-view">
+    <div id="panes" class="panes" data-layout="sample-left">
+      <section class="pane">
+        <div class="pane-head">
+          <span class="pane-title">見本</span>
+          <span id="sampleInfo" class="pane-note"></span>
+        </div>
+        <div id="sample" class="sample"></div>
+      </section>
+      <section class="pane">
+        <div class="pane-head">
+          <span class="pane-title">入力</span>
+          <span class="pane-note">貼り付けはできません</span>
+        </div>
+        <textarea id="input" class="input" spellcheck="false" autocomplete="off"
+          placeholder="ここに入力します。最初の1文字を打つと、時間を計り始めます。"></textarea>
+      </section>
+    </div>
+
+    <div class="controls">
+      <span id="phase" class="phase">準備OK</span>
+      <span id="timer" class="timer">0:00</span>
+      <span id="message" class="message" role="status"></span>
+      <button type="button" id="resetBtn" class="secondary">やりなおす</button>
+      <button type="button" id="finishBtn">終了（Ctrl+Enter）</button>
+    </div>
+  </main>
+
+  <!-- 結果画面 -->
+  <main id="resultView" class="result-view" hidden>
+    <div class="result-head">
+      <h2>結果：<span id="resultTitle"></span> <span id="resultJudge" class="judge-tag"></span> <span id="resultStatus" class="status-tag" hidden></span></h2>
+      <div class="result-actions">
+        <button type="button" id="againBtn">同じ文章でもう一度</button>
+      </div>
+    </div>
+    <p id="saveStatus" class="save-status" role="status"></p>
+
+    <div id="stats" class="stats"></div>
+    <p id="restNote" class="rest-note" hidden></p>
+    <p id="compareNote" class="compare-note" hidden></p>
+
+    <h3>この文章の過去の記録</h3>
+    <div id="textHistory"></div>
+
+    <h3>見本との照らし合わせ</h3>
+    <p class="legend">
+      同じ番号どうしが対応しています。番号や一覧の行にマウスを乗せると、両方が強調されます。<br>
+      <span class="d-miss">赤</span> 見本で、正しく打てなかった文字　
+      <span class="d-extra">黄</span> 入力で、まちがえて打った文字　
+      <span class="d-rest">灰色</span> 最後に打たなかった部分
+      <span class="d-soft">点線</span> ゆるい判定で数えなかったちがい<br>
+      ␣＝半角スペース　□＝全角スペース　↵＝改行　→＝タブ
+    </p>
+    <div id="compare" class="compare">
+      <section class="compare-pane">
+        <div class="pane-head"><span class="pane-title">見本</span></div>
+        <div id="compareSample" class="compare-body"></div>
+      </section>
+      <section class="compare-pane">
+        <div class="pane-head"><span class="pane-title">入力</span></div>
+        <div id="compareInput" class="compare-body"></div>
+      </section>
+    </div>
+
+    <h3>まちがいの一覧</h3>
+    <p id="kindSummary" class="kind-summary"></p>
+    <div id="mistakeList"></div>
+  </main>
+
+  <!-- 記録の一覧 -->
+  <main id="historyView" class="result-view" hidden>
+    <div class="result-head">
+      <h2>記録の一覧</h2>
+      <div class="result-actions">
+        <button type="button" id="historyBackBtn">練習に戻る</button>
+      </div>
+    </div>
+    <p class="legend">
+      新しい順に並んでいます。ここに出るのは、あなたの記録だけです（ほかの利用者からは見えません）。
+    </p>
+    <p id="historySummary" class="kind-summary"></p>
+    <div id="historyList"></div>
+  </main>
+
+  <!-- 文章の控えの窓（書き出し・まとめて読み込み） -->
+  <dialog id="backupDialog" class="paste-dialog">
+    <h2>文章の控え</h2>
+    <p id="backupStatus" class="kind-summary"></p>
+    <p id="backupNotice" class="message" role="status"></p>
+
+    <h3>書き出す</h3>
+    <p class="legend">
+      保存した文章を、1つのテキストファイルにまとめます。合言葉を忘れたときに、文章を戻すための控えです。<br>
+      ★<strong>このファイルには鍵がかかっていません。</strong>自分のGoogleドライブなど、他の人に見られない場所にしまい、共用のPCからは消してください。
+    </p>
+    <p><button type="button" id="backupExportBtn">文章を書き出す</button></p>
+    <details id="backupManual" hidden>
+      <summary>ファイルが保存されないときはこちら</summary>
+      <p class="legend">下の文字を全部コピーして、メモ帳に貼り付けて保存してください。</p>
+      <textarea id="backupText" class="backup-text" rows="8" readonly></textarea>
+    </details>
+
+    <h3>まとめて読み込む</h3>
+    <p class="legend">書き出したファイルから、文章を戻します。同じ本文の文章は、重ねて保存しません。</p>
+    <label class="field">
+      書き出したファイルを選ぶ（.txt）
+      <input type="file" id="backupFile" accept=".txt,text/plain">
+    </label>
+
+    <div class="dialog-actions">
+      <button type="button" id="backupCloseBtn" class="secondary">閉じる</button>
+    </div>
+  </dialog>
+
+  <!-- 合言葉を変更する窓 -->
+  <dialog id="passDialog" class="paste-dialog">
+    <form id="passForm" autocomplete="off">
+      <h2>合言葉を変更する</h2>
+      <p id="passNotice" class="message" role="status"></p>
+      <label class="field">
+        今の合言葉
+        <input type="password" id="passCurrent">
+      </label>
+      <label class="field">
+        新しい合言葉（半角の英字・数字・記号で8文字以上）
+        <input type="password" id="passNew">
+      </label>
+      <label class="field">
+        新しい合言葉（確認のため、もう一度）
+        <input type="password" id="passNew2">
+      </label>
+      <label class="check"><input type="checkbox" id="showNewPass"> 新しい合言葉を表示する</label>
+      <p id="newPassPreview" class="pass-preview" hidden></p>
+      <p class="legend">
+        保存した文章と記録は、そのまま残ります。変更には少し時間がかかります。<br>
+        ★新しい合言葉は、自分だけが見る場所にメモしてください。忘れると、保存した文章は戻せません。
+      </p>
+      <div class="dialog-actions">
+        <button type="button" id="passCancelBtn" class="secondary">やめる</button>
+        <button type="submit" id="passSubmitBtn">変更する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 自分の文章を貼り付ける窓 -->
+  <dialog id="pasteDialog" class="paste-dialog">
+    <form method="dialog" id="pasteForm">
+      <h2>自分の文章を貼り付ける</h2>
+      <label class="field">
+        タイトル（なくても大丈夫です）
+        <input type="text" id="pasteTitle" maxlength="60">
+      </label>
+      <div class="field">
+        テキストファイルから読み込む（.txt）
+        <input type="file" id="pasteFile" accept=".txt,text/plain">
+      </div>
+      <label class="field">
+        練習したい文章（貼り付けるか、テキストファイルをここにドラッグしても読み込めます）
+        <textarea id="pasteBody" rows="12"></textarea>
+      </label>
+      <p class="dialog-note"><span id="pasteCount">0</span>文字（4,000文字まで）　<span id="pasteMessage" class="message"></span></p>
+      <div class="dialog-actions">
+        <button type="button" id="pasteCancelBtn" class="secondary">やめる</button>
+        <button type="button" id="pasteUseBtn" class="secondary">保存せずに練習する</button>
+        <button type="button" id="pasteSaveBtn">保存して練習する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+// 最初から用意している練習文（すべて自作。雑学は確かな内容だけを書いている）
+// group（手軽さの段階）:
+//   "ふつう"   = 仕事に関係ない、興味がわく話題やお話。漢字・かな・「、」「。」だけ
+//   "やさしめ" = 職場の気軽なやりとり。漢字・かな・「、」「。」だけ
+//   "本番"     = 正式な仕事の文書。記号・英数字・改行あり
+// genre は一覧で【】に入れて見せるジャンル名（無くてもよい）
+//
+// 漢字とひらがなの決まり（日本語入力で、出てきた候補のまま打てるようにするため）
+//   ・ふつうは漢字で書く言葉は漢字にする（周り・初めて・比べる・分かる・不思議 など）
+//   ・「言う」は、だれかが実際に話したことなら漢字（きつねは〜と言いました）。
+//     一般的な説や言い伝えはひらがな（〜といわれています）。
+//     「〜という言葉」「今でいうと」のように、つなぎや言いかえの役目だけのときもひらがな
+//   ・「〜といわれています」ばかりにならないよう、「〜そうです」「〜とされています」
+//     「〜として知られています」などと言い方を変える。記録に残っている事実は言い切る
+//   ・生き物の名前は、雑学ではカタカナ（タコ・カラス・ヒマワリ）。お話ではひらがなでもよい（きつね・たぬき）
+//   ・同じ読みで意味がちがう漢字に注意（初め/始め、測る/計る/量る、映す/写す、効く/利く など）
+//   ・ひらがなにするもの：「〜てください」「〜ておく」などの後ろにつく部分、
+//     「こと・とき・もの」、「また・さらに・とても・ほとんど」など、
+//     仕事の決まった言い方（よろしくお願いします・おかけします・いらっしゃる）
+//   ・人や入力ソフトで書き方が分かれる言葉（おすすめ・いろいろ・きれい・おいしい など）は、
+//     別の言い方にして使わない
+const PRESET_TEXTS = [
+  // ===== ふつう =====
+  {
+    id: "casual-moon",
+    group: "ふつう",
+    genre: "宇宙",
+    title: "月はいつも同じ顔",
+    body: "夜空に浮かぶ月は、いつ見ても同じ模様をしています。これは、月がいつも同じ面を地球に向けているからです。月は地球の周りを一周する間に、自分自身も一回転しています。そのため、地球からは月の裏側を見ることができません。月の裏側の姿は、探査機が撮影した写真によって、初めて人々に知られるようになりました。裏側は表側と比べて、黒っぽい平らな部分が少なく、クレーターがたくさんあります。また、月は毎年ほんの少しずつ、地球から遠ざかっていることも分かっています。遠い昔の月は、今よりもずっと大きく見えていたのかもしれません。",
+  },
+  {
+    id: "casual-octopus",
+    group: "ふつう",
+    genre: "動物",
+    title: "タコの不思議な体",
+    body: "タコは、とても不思議な体をしています。まず、心臓が三つあります。一つは体全体に血を送り、残りの二つはえらに血を送る働きをしています。また、タコの血は赤ではなく、青い色をしています。これは、血の中で酸素を運ぶ成分に、銅が含まれているためです。さらにタコは、神経の多くが足に集まっていて、それぞれの足がまるで自分で考えているかのように動くことができます。体の色や模様を一瞬で変えて、岩や海藻に紛れることも得意です。瓶の蓋を開けたり、道順を覚えたりするタコもいて、その頭の良さは研究者たちを驚かせています。",
+  },
+  {
+    id: "casual-penguin",
+    group: "ふつう",
+    genre: "動物",
+    title: "皇帝ペンギンのお父さん",
+    body: "南極に住む皇帝ペンギンは、とても厳しい環境で子育てをします。冬の初めに、お母さんが卵を一つ産むと、その卵はお父さんに預けられます。お母さんは食べ物を探すために、遠い海へと旅立ちます。残されたお父さんは、足の上に卵を乗せ、お腹の皮で包み込むようにして温めます。その間、お父さんはほとんど何も食べずに、真冬の寒さにじっと耐えるのです。吹雪の日には、たくさんのお父さんたちが体を寄せ合い、大きな塊になって風をしのぎます。外側と内側を少しずつ入れ替わりながら、群れ全体で寒さを分け合います。やがてひなが生まれる頃、お母さんが海から戻ってきて、子育てを交代します。",
+  },
+  {
+    id: "casual-crow",
+    group: "ふつう",
+    genre: "動物",
+    title: "カラスの賢さ",
+    body: "カラスは、鳥の中でも特に賢い生き物として知られています。例えば、人の顔を見分けて覚えることができ、嫌なことをされた相手のことを、長い間忘れないという研究があります。また、ある地域のカラスは、木の枝を道具のように使い、木の隙間にいる虫を釣り出して食べます。日本でも、硬いクルミを道路に置いて、車にひかせて割ってから中身を食べるカラスが見つかっています。さらに、食べ物を隠しておく習性もあり、他の鳥に見られていると気付くと、後でこっそり隠し場所を変えることもあるそうです。ごみをあさる困った鳥と思われがちですが、その行動を観察してみると、驚くほど考えて暮らしていることが分かります。",
+  },
+  {
+    id: "casual-sky",
+    group: "ふつう",
+    genre: "科学",
+    title: "空が青いわけ",
+    body: "晴れた日の空は、どうして青く見えるのでしょうか。太陽の光は白っぽく見えますが、実はたくさんの色の光が混ざっています。この光が空気の中を進むとき、空気の小さな粒にぶつかって、あちこちに散らばります。青い光は、赤い光よりも散らばりやすい性質を持っています。そのため、空のあらゆる方向から青い光が私たちの目に届き、空全体が青く見えるのです。では、夕焼けが赤いのはなぜでしょう。夕方になると、太陽の光は斜めから差し込むため、空気の中を長い距離進むことになります。その間に青い光はほとんど散らばってしまい、散らばりにくい赤や橙色の光が多く残ります。こうして、空が赤く染まって見えるのです。",
+  },
+  {
+    id: "casual-sunflower",
+    group: "ふつう",
+    genre: "植物",
+    title: "ヒマワリは太陽を追いかける？",
+    body: "ヒマワリは、太陽の方を向いて咲く花として知られています。けれども、花が太陽を追いかけて動くのは、まだ若くて成長している時期だけです。若いヒマワリは、昼の間、太陽を追うように東から西へと向きを変え、夜のうちにまた東へと戻ります。茎の東側と西側で、伸び方に差が出ることで向きが変わると考えられています。そして、花が大きく開く頃になると動きは止まり、多くの花が東を向いたまま咲き続けます。東を向いた花は、朝日を浴びて早く温まるため、虫がたくさん集まりやすいという研究もあります。また、花の中心に並ぶ種は、渦巻きのような模様を描いていて、その美しい形も昔から人々の興味を集めてきました。",
+  },
+  {
+    id: "casual-deepsea",
+    group: "ふつう",
+    genre: "海",
+    title: "深海の世界",
+    body: "海の深い場所には、太陽の光がほとんど届きません。深くなるほど水は冷たくなり、水の重さによる強い力も加わります。そんな厳しい環境にも、たくさんの生き物が暮らしています。深海の生き物の中には、自分の体を光らせるものが多くいます。光を使って、獲物をおびき寄せたり、敵の目をくらませたり、仲間に合図を送ったりしていると考えられています。また、長い間、幻の生き物とされてきたダイオウイカは、日本の研究チームなどが、深海で生きて泳ぐ姿の撮影に成功し、大きな話題になりました。深海は、人間がまだほとんど調べることのできていない場所です。これからも、見たこともない生き物が見つかるかもしれません。",
+  },
+  {
+    id: "casual-curry-navy",
+    group: "ふつう",
+    genre: "食べ物",
+    title: "カレーと海軍",
+    body: "カレーはインドの料理から生まれたものですが、日本にはイギリスを通して伝わったといわれています。明治時代の初め頃、西洋の料理として紹介され、少しずつ広まっていきました。カレーが日本中に広まるきっかけの一つとされるのが、海軍の食事です。当時の海軍では、栄養の偏りによる病気が問題になっていました。肉や野菜をたっぷり使い、ご飯と一緒に食べられるカレーは、栄養のバランスを取るのにぴったりの料理でした。今でも海上自衛隊では、毎週金曜日にカレーを食べる習慣があるそうです。長い航海の間、曜日の感覚を忘れないようにするためだそうです。",
+  },
+  {
+    id: "casual-hiccup",
+    group: "ふつう",
+    genre: "体",
+    title: "しゃっくりの仕組み",
+    body: "しゃっくりは、誰でも一度は経験したことがあるでしょう。私たちが息をするとき、肺の下にある横隔膜という膜が、上がったり下がったりしています。しゃっくりは、この横隔膜が自分の意思とは関係なく、急にけいれんするように縮むことで起こります。そのとき息が勢いよく吸い込まれ、喉の奥にある声帯が素早く閉じるため、ひっくという独特の音が出るのです。早食いをしたときや、炭酸の飲み物を飲んだとき、急に冷たいものを口にしたときなどに起こりやすいといわれています。止め方としては、息を止める、水を飲むなど、昔から多くのやり方が伝えられていますが、どれが本当に効くのかは、はっきりとは分かっていません。",
+  },
+  {
+    id: "casual-arigatou",
+    group: "ふつう",
+    genre: "ことば",
+    title: "ありがとうの由来",
+    body: "毎日何気なく使っている、ありがとうという言葉。この言葉は、有り難いという言葉から生まれたとされています。有り難いは本来、有ることが難しい、という意味でした。つまり、なかなか起こらないこと、とても貴重なことを表す言葉だったのです。それが、なかなかないほどの親切を受けた、という感謝の気持ちを表す言葉として使われるようになりました。そう考えると、ありがとうと伝えることは、あなたのしてくれたことは当たり前ではありません、と伝えることなのかもしれません。普段の小さな親切にも、この言葉を気持ちを込めて使ってみたくなります。",
+  },
+  {
+    id: "casual-proverbs",
+    group: "ふつう",
+    genre: "ことば",
+    title: "ことわざ",
+    body: "急がば回れ。石の上にも三年。猿も木から落ちる。塵も積もれば山となる。七転び八起き。早起きは三文の徳。雨降って地固まる。笑う門には福来る。好きこそ物の上手なれ。千里の道も一歩から。習うより慣れよ。案ずるより産むが易し。",
+  },
+  {
+    id: "casual-train",
+    group: "ふつう",
+    genre: "くらし",
+    title: "電車の窓から",
+    body: "電車の窓から見える景色が好きです。駅を出てしばらくすると、家の屋根がだんだん少なくなり、やがて田んぼが広がる場所に出ます。春には水を張った田んぼが空を映して、まるで大きな鏡のように光っています。夏になると、青々とした稲が風に揺れて、波のように見えます。秋には一面が黄金色に変わり、冬には刈り取られた後の土が静かに広がります。同じ線路を走っているだけなのに、季節ごとに全く違う景色に出会えるのです。晴れた日には、遠くの山の向こうに大きな雲がもくもくと浮かんでいます。ぼんやり外を眺めていると、あっという間に目的の駅に着いてしまいます。",
+  },
+  {
+    id: "casual-cooking-class",
+    group: "ふつう",
+    genre: "日記",
+    title: "初めての料理教室",
+    body: "今日は、初めて料理教室に行きました。作ったのは、ハンバーグと野菜のスープです。先生は、まず玉ねぎのみじん切りから教えてくれました。包丁を細かく動かすのが難しく、なかなか同じ大きさに切ることができません。ひき肉をこねる作業も思ったより力が要って、途中で手が疲れてしまいました。それでも、形を整えてフライパンで焼き始めると、台所いっぱいにいい匂いが広がりました。焼き上がったハンバーグはふっくらしていて、自分で作ったとは思えないほど上手にできました。一緒に参加した人たちとも話が弾み、とても楽しい時間でした。家でもまた作ってみようと思います。",
+  },
+  {
+    id: "casual-fable",
+    group: "ふつう",
+    genre: "お話",
+    title: "きつねとたぬきの宝探し",
+    body: "ある山の近くの森に、きつねとたぬきが住んでいました。ある日、二匹は古い木の箱の中から、一枚の地図を見つけました。地図には、大きな木の下に宝物が埋めてあると書かれています。二匹は大喜びで、朝から宝探しに出発しました。けれども、山には大きな木がたくさんあります。きつねは地図をにらみながら道を考え、たぬきは力を込めて土を掘りました。昼が過ぎ、夕方になっても、宝物はどこにも見つかりません。すっかり疲れた二匹は、丘の上に並んで座り込みました。すると目の前に、真っ赤な夕焼けが広がっていました。山も川も、遠くの村の屋根も、どれも同じ色に染まっています。たぬきは、宝物よりも素敵だねと笑いました。きつねもうなずいて、今日は一番いい日だったと言いました。そして二匹は、また明日も一緒に探そうと約束して、家に帰っていきました。",
+  },
+  {
+    id: "casual-library",
+    group: "ふつう",
+    genre: "お話",
+    title: "小さな図書館",
+    body: "駅の裏通りに、小さな図書館があります。建物は古く、床を歩くと少しきしむ音がします。けれども、窓から柔らかい光が差し込む読書席は、町で一番落ち着ける場所です。本棚のあちこちには、司書さんが手書きした本の紹介が貼ってあります。どの紹介文も短いのに、その本を読みたくなるような言葉が選ばれていて、読んでいるうちに、気付けば何冊も本を借りてしまいます。先日、思い切って司書さんに、紹介文を書くときの秘訣を聞いてみました。すると司書さんは、その本を読んだときに、一番心が動いた場面だけを書くのだと教えてくれました。それ以来、本を読み終えるたびに、自分ならどんな紹介文を書くだろうと考えるようになりました。",
+  },
+  {
+    id: "casual-ino",
+    group: "ふつう",
+    genre: "歴史",
+    title: "伊能忠敬の日本地図",
+    body: "江戸時代に、日本中を歩いて測り、正確な日本地図を作ったのが伊能忠敬です。忠敬は商人として家業を立て直し、隠居した後に江戸へ出て、天文学や暦学を学び始めました。そして、還暦も近い年齢になってから、日本中の海岸線を測る旅に出たのです。初めの頃は、自分の歩幅で距離を測っていたそうです。夜には星の位置を観測して、自分たちのいる場所を確かめました。測量の旅は長い年月にわたって続き、歩いた距離は地球を一周するほどになったそうです。忠敬は地図の完成を見ることなく亡くなりましたが、弟子たちがその仕事を引き継ぎ、見事な日本地図を仕上げました。その正確さは、後の時代の人々を驚かせました。",
+  },
+  {
+    id: "casual-post",
+    group: "ふつう",
+    genre: "歴史",
+    title: "郵便の始まり",
+    body: "江戸時代、遠くへ手紙や荷物を届ける仕事をしていたのは、飛脚と呼ばれる人たちでした。飛脚は、街道を走りつないで手紙を運びましたが、料金は高く、届くまでに時間もかかりました。明治時代になると、前島密が中心となって、新しい郵便の仕組みが作られました。全国どこへでも、決まった料金で手紙を送れるようにしたのです。町には手紙を入れる箱が置かれ、切手を貼って入れるだけで、手紙が届くようになりました。郵便や切手という言葉も、この頃に使われ始めたといわれています。前島密は日本の郵便の父と呼ばれ、今でも日本で一番安い切手には、彼の肖像が描かれています。",
+  },
+  {
+    id: "casual-oyatsu",
+    group: "ふつう",
+    genre: "歴史",
+    title: "おやつと昔の時刻",
+    body: "おやつという言葉が、昔の時刻の呼び方から来ていることを知っていますか。江戸時代の人々は、昼と夜をそれぞれ六つに分けて時刻を数えていました。日の出や日の入りを基準にしていたため、季節によって一つ分の長さが変わる、不思議な数え方でした。時刻は鐘の音で知らされ、昼の真ん中は九つと呼ばれ、そこから八つ、七つと数が減っていきました。そのうち、昼の八つ時は、今でいうと昼過ぎの頃に当たります。この時間に軽く食べる間食が、お八つと呼ばれるようになり、それが今のおやつになったといわれています。何気なく使っている言葉にも、昔の暮らしが残っているのですね。",
+  },
+  {
+    id: "casual-ekiden",
+    group: "ふつう",
+    genre: "スポーツ",
+    title: "駅伝は日本生まれ",
+    body: "駅伝は、日本で生まれた競技です。何人かの選手が順番に走り、たすきをつないでゴールを目指します。最初の駅伝は大正時代に行われ、京都から東京までの長い道のりを、昼も夜も走り続けたそうです。駅伝という名前は、昔の街道に置かれていた駅と、そこで人や馬を乗り継いで荷物や知らせを運んだ仕組みに由来するそうです。今では、お正月の箱根駅伝が多くの人に親しまれています。自分の区間を全力で走り、苦しくても仲間にたすきを渡そうとする選手の姿に、心を打たれる人も多いでしょう。日本で生まれた駅伝は、今ではエキデンという名前で、海外でも知られるようになりました。",
+  },
+  {
+    id: "casual-judo",
+    group: "ふつう",
+    genre: "スポーツ",
+    title: "青い柔道着",
+    body: "柔道は、明治時代に嘉納治五郎が始めた日本の武道です。今では世界中に広まり、オリンピックの競技にもなっています。以前の柔道の試合では、両方の選手が白い柔道着を着ていました。しかし、観客や審判にとっては、どちらの選手か見分けにくいという問題がありました。そこで、片方の選手が青い柔道着を着る方法が考えられました。この方法を提案したのは、オランダの柔道家であるヘーシンクだといわれています。日本では、柔道着は白であるべきだという反対の声も多くありましたが、やがて国際大会で取り入れられ、今ではすっかり見慣れた光景になりました。伝統を大切にしながらも、時代に合わせて変わっていく。柔道の歴史には、そんな一面もあるのです。",
+  },
+  {
+    id: "casual-soccerball",
+    group: "ふつう",
+    genre: "スポーツ",
+    title: "白と黒のサッカーボール",
+    body: "サッカーボールと聞くと、白と黒の模様を思い浮かべる人が多いのではないでしょうか。五角形と六角形の革を組み合わせたこのボールは、ワールドカップで使われたことをきっかけに、世界中に広まりました。白と黒の模様になったのには、理由があります。当時はまだ白黒のテレビが多く、画面の中でボールの動きが分かりやすいように、はっきりとした模様が選ばれたのです。最近の公式のボールは、空気の流れまで計算して作られていて、形も模様も大会ごとに変わっています。それでも、白と黒のボールは、今でもサッカーを表す絵や記号として、あちこちで使われています。",
+  },
+  {
+    id: "casual-radio-taiso",
+    group: "ふつう",
+    genre: "スポーツ",
+    title: "ラジオ体操",
+    body: "夏休みの朝、近所の公園に集まってラジオ体操をした思い出がある人も多いでしょう。日本のラジオ体操は、昭和の初めに始まりました。アメリカの保険会社が、ラジオで体操の番組を放送していたことを参考にして、国民の健康のために作られました。誰でもどこでもできるように、道具を使わず、音楽に合わせて体を動かす内容になっています。ラジオ体操は短い時間で終わりますが、全身の筋肉や関節をしっかり動かすように考えられています。そのため、今でも学校や職場、地域の集まりなどで、準備運動として親しまれています。出席カードにスタンプを押してもらうのが楽しみで、毎朝早起きをしたという人もいるのではないでしょうか。",
+  },
+
+  // ===== 長文（ふつうの約2倍の長さ） =====
+  {
+    id: "long-rainbow",
+    group: "長文",
+    genre: "科学",
+    title: "虹ができる仕組み",
+    body: "雨上がりの空に、大きな虹がかかっているのを見たことがあるでしょう。虹は、太陽の光と空気中に浮かぶ小さな水の粒によって生まれます。太陽の光は白っぽく見えますが、実はたくさんの色の光が混ざっています。この光が水の粒に入ると、粒の中で曲がったり跳ね返ったりしてから外へ出ていきます。このとき、光の色によって曲がる角度が少しずつ違うため、白い光が色ごとに分かれて見えるのです。これが虹の正体です。虹は、いつも太陽と反対側の空に現れます。そのため、虹を見つけたいときは、太陽を背中にして空を見上げるとよいでしょう。また、太陽が高く上がる真昼よりも、太陽の低い朝や夕方の方が、虹は見えやすくなります。よく見ると、大きな虹の外側に、もう一つうっすらとした虹が見えることがあります。この外側の虹は、色の並び方が内側の虹と逆になっています。光が水の粒の中で、もう一度跳ね返ってから出てくるためです。ところで、日本では虹の色を七色と数えることが多いですが、国や地域によっては、もっと少ない色の数で数えることもあります。虹の色は境目がはっきりしないため、どこで区切るかは、その土地の言葉や文化によって変わるのです。晴れた日に、庭で水をまいて太陽を背にすると、小さな虹を自分で作ることもできます。",
+  },
+  {
+    id: "long-migration",
+    group: "長文",
+    genre: "動物",
+    title: "渡り鳥はなぜ迷わないのか",
+    body: "春になると、南の国からツバメが日本へやってきます。そして秋には、また暖かい南の国へと帰っていきます。このように、季節によって長い距離を移動する鳥を、渡り鳥と呼びます。渡り鳥の中には、海を越えて、何千キロも離れた場所まで旅をするものもいます。地図も道しるべもない空の上で、渡り鳥はどうして迷わずに目的地へたどり着けるのでしょうか。研究によると、渡り鳥はいくつかの手がかりを組み合わせて、方角を知っていると考えられています。昼間に移動する鳥は、太陽の位置を手がかりにします。太陽は時間とともに動きますが、鳥は体の中の時計で時刻を感じ取り、太陽の動きを計算に入れて方角を決めているようです。夜に移動する鳥は、星の並び方を頼りにしています。若い鳥を使った実験では、夜空がゆっくり回るときの中心の位置を覚えて、北の方角を知ることが分かりました。さらに、地球が持っている磁石の力を感じ取る能力もあると考えられています。曇りの日で太陽も星も見えないときでも、この力を頼りに進めるのです。目的地に近づくと、海岸線や山の形、においなども使って、細かい場所を探し当てるといわれています。小さな体で、これほど見事な旅をやり遂げる渡り鳥の力には、驚かされるばかりです。",
+  },
+  {
+    id: "long-hikeshi",
+    group: "長文",
+    genre: "歴史",
+    title: "江戸の町の火消し",
+    body: "江戸の町は、とても火事の多い町でした。木と紙でできた家が隙間なく建ち並び、冬になると乾いた強い風が吹くため、一度火が出ると、あっという間に燃え広がってしまったのです。そこで、町の人々を火事から守るために作られたのが、火消しと呼ばれる組織です。初めは武士が中心となって火消しを務めていましたが、江戸時代の中頃になると、町奉行の大岡忠相によって、町人たちによる町火消しが作られました。町火消しは地域ごとに組に分かれ、それぞれの組には、いろは歌の文字を使った名前がつけられました。当時は、今のように大量の水を勢いよくかける道具がありませんでした。そのため火消したちは、燃えている家の周りの建物を壊して、火がそれ以上広がらないようにする方法で火事と戦いました。このとき、組の目印である纏を持った人が屋根に上り、ここで火を止めるという合図を送りました。纏を持つ人は、火の粉を浴びながらも、その場所から決して離れなかったといわれています。火消しの多くは、普段は高い所での仕事に慣れた職人たちでした。身軽な動きで屋根から屋根へと飛び移る姿に、町の人々は大きな声援を送りました。今でもお正月の出初式では、はしごの上で技を見せる伝統が受け継がれています。",
+  },
+  {
+    id: "long-sleep",
+    group: "長文",
+    genre: "体",
+    title: "眠りの仕組み",
+    body: "私たちは、毎晩当たり前のように眠っていますが、眠っている間の体の中では、実はたくさんのことが起きています。眠りには、大きく分けて二つの種類があります。一つは、脳も体もぐっすりと休んでいる深い眠りです。もう一つは、体は休んでいるのに、脳が起きているときに近い働きをしている浅い眠りです。浅い眠りのときには、まぶたの下で目玉が素早く動いていることが知られています。夢をはっきりと覚えているのは、多くの場合、この浅い眠りのときに目が覚めたときだそうです。この二つの眠りは、一晩のうちに何度も交互に繰り返されます。眠り始めてすぐの時間には深い眠りが多く、朝が近づくにつれて浅い眠りが増えていきます。深い眠りの間には、体の成長や疲れの回復を助ける物質が多く出ています。また、眠っている間に、脳はその日に覚えたことを整理して、記憶として定着させていると考えられています。勉強をした後にしっかり眠ることが大切だといわれるのは、そのためです。よく眠るためには、毎朝同じ時間に起きて、太陽の光を浴びることが役に立ちます。朝の光を浴びると、体の中の時計が整い、夜になると自然に眠くなるからです。反対に、寝る直前まで明るい画面を見ていると、眠りにつきにくくなることがあります。夜は部屋の明かりを少し落として、ゆっくりと体を休める時間を作ってみてはいかがでしょうか。",
+  },
+  {
+    id: "long-kaitenzushi",
+    group: "長文",
+    genre: "食べ物",
+    title: "回転寿司の誕生",
+    body: "お皿に盛られた寿司が、店の中をぐるぐると回っている回転寿司は、今では多くの人に親しまれています。この仕組みを考え出したのは、大阪で立ち食いの寿司屋を営んでいた、白石義明という人です。当時の寿司屋はとても忙しく、職人の数が足りないことが悩みでした。どうすれば少ない人数で、たくさんのお客さんに素早く寿司を届けられるだろうか。そう考えていた白石さんは、ある日、ビール工場を見学しました。そこで目にしたのが、ビール瓶が次々と運ばれていく、ベルトコンベアの流れでした。これを寿司屋に使えないかと考えた白石さんは、何年もかけて工夫を重ねました。特に苦労したのは、角を曲がる部分です。お皿が詰まったり、ぶつかったりしないように、三日月の形をした板を組み合わせる方法を考え出しました。こうして昭和の半ば頃、大阪に最初の回転寿司の店が開かれました。その後、大阪で開かれた万国博覧会に店を出したことで、回転寿司は全国に知られるようになりました。今では、注文した寿司だけを素早く届ける専用の通り道があったり、画面で注文できたりと、形を変えながら進化を続けています。一人のアイデアから生まれた仕組みが、日本の食文化の一つとして、海外にまで広がっているのです。",
+  },
+  {
+    id: "long-baseball",
+    group: "長文",
+    genre: "スポーツ",
+    title: "野球が日本に広まるまで",
+    body: "日本で最も人気のあるスポーツの一つである野球は、明治時代の初め頃、アメリカから来た先生によって伝えられたとされています。東京の学校で教えていたウィルソンという先生が、授業の合間に、学生たちにボールの投げ方や打ち方を教えたのが始まりだといわれています。当時は、まだ野球という名前もありませんでした。ベースボールという言葉は、後になって野球と訳されました。また、俳人として知られる正岡子規も野球が大好きで、打者や走者など、今でも使われている言葉をいくつも考え出しました。その後、野球は学生たちの間で一気に広まりました。大正時代には、学校の生徒たちによる全国大会が始まります。この大会は、後に甲子園球場で開かれるようになり、今の夏の甲子園へとつながっていきます。昭和の初めには、職業として野球をする選手たちによる、プロ野球も始まりました。テレビで試合が中継されるようになると、野球は家族そろって楽しむ娯楽として、日本中に定着していきました。今では、日本で育った選手が海を渡り、アメリカの大リーグで活躍する姿も珍しくありません。海の向こうから伝わったスポーツが、今度は日本から世界へ、新しい風を送っているのです。",
+  },
+  {
+    id: "long-starlight",
+    group: "長文",
+    genre: "宇宙",
+    title: "星の光は昔の光",
+    body: "夜空にまたたく星を見上げたとき、その光が昔の光だと聞いても、ぴんとこないかもしれません。光は、とても速く進みます。またたく間に地球を何周もしてしまうほどの速さです。それでも宇宙はあまりにも広いため、星の光が地球に届くまでには、長い時間がかかります。例えば、太陽の光が地球に届くまでには、数分かかります。つまり、私たちが見ている太陽は、数分前の姿なのです。夜空に見える星の多くは、太陽よりもずっと遠くにあります。近い星でも、光が届くまでに何年もかかり、遠い星では何百年、何千年もかかります。宇宙では、距離を表すのに光年という単位が使われます。光が進む距離をもとにした単位で、星までの距離がどれほど遠いかを表すのに便利なのです。肉眼で見える天体の中には、アンドロメダ銀河のように、気が遠くなるほど昔に出た光が、今ようやく届いているものもあります。私たちがその光を見ているとき、実は宇宙の過去の姿を見ていることになるのです。中には、光が地球に届くまでの間に、星そのものが寿命を迎えて、もう消えてしまっているものがあるかもしれません。夜空を見上げるときは、遠い過去から旅をしてきた光を受け取っているのだと思ってみてください。いつもの星のまたたきが、少し違って見えてくるかもしれません。",
+  },
+  {
+    id: "long-watch",
+    group: "長文",
+    genre: "お話",
+    title: "おじいさんの腕時計",
+    body: "夏休みのある日、押し入れを片付けていた僕は、古い木の箱を見つけました。中に入っていたのは、針が止まったままの腕時計でした。母に聞くと、それは亡くなったおじいさんが大切にしていた時計だと教えてくれました。どうしても動くところを見てみたくなった僕は、商店街の外れにある小さな時計屋を訪ねました。店の奥では、白髪の店主が、細い道具を使って時計の中をのぞき込んでいました。腕時計を差し出すと、店主はしばらく黙って眺めてから、これはいい時計だねと言いました。修理には、少し時間がかかるそうです。約束の日に店へ行くと、腕時計はかちかちと小さな音を立てて動いていました。店主は、この時計の裏に文字が彫ってあると教えてくれました。そこには、おじいさんの名前と、ある春の日付が刻まれていました。家に帰って母に確かめると、それはおじいさんが初めて働き始めた日でした。初めての給料を貯めて、自分へのご褒美に買った時計だったのです。時計を受け取るとき、店主は、時計は使ってあげるのが一番の手入れなんだよと言って笑いました。それから僕は、出かけるときにはいつも、その時計を腕に巻いています。少し大きくて重たいけれど、針の音を聞いていると、会ったことのないおじいさんが、そばで見守ってくれているような気がするのです。",
+  },
+
+  // ===== やさしめ（職場の気軽なやりとり） =====
+  {
+    id: "easy-room",
+    group: "やさしめ",
+    genre: "連絡",
+    title: "打ち合わせの場所が変わりました",
+    body: "明日の打ち合わせですが、場所が第二会議室に変わりました。いつもの第一会議室は、急に別の会議で使うことになったそうです。開始の時間はそのままです。資料はこちらで人数分を用意しておくので、手ぶらで来てもらって大丈夫です。もし事前に目を通しておきたい場合は、今日の夕方までに共有のフォルダに入れておきますので、そちらを見てください。何か分からないことがあれば、気軽に声を掛けてください。",
+  },
+  {
+    id: "easy-phone",
+    group: "やさしめ",
+    genre: "メモ",
+    title: "電話のメモ",
+    body: "お疲れ様です。席を外されている間に、取引先の佐藤さんからお電話がありました。来週の打ち合わせの日にちについて、確認したいことがあるそうです。佐藤さんは、今日は夕方まで会社にいらっしゃるとのことでした。お手数ですが、戻られたら折り返しのお電話をお願いします。電話番号は、いつもの名簿に載っているものと同じだそうです。急ぎではないけれど、今日中に話せると助かる、とおっしゃっていました。",
+  },
+  {
+    id: "easy-thanks",
+    group: "やさしめ",
+    genre: "お礼",
+    title: "手伝ってくれてありがとう",
+    body: "昨日は、資料の整理を手伝ってくれて本当にありがとうございました。一人でやっていたら、きっと夜まで終わらなかったと思います。おかげで、思っていたよりずっと早く片付き、今日の会議にも余裕を持って間に合いました。特に、書類を種類ごとに分けて、箱に名前を書いてくれたのが、とても分かりやすくて助かりました。今度、何か困ったことがあったら、いつでも声を掛けてください。次は私が手伝います。",
+  },
+  {
+    id: "easy-timesheet",
+    group: "やさしめ",
+    genre: "お願い",
+    title: "勤務表を出してください",
+    body: "今月の勤務表の提出期限は、月末の金曜日です。出勤した日と時間、お休みを取った日などを、間違いのないように書いてください。書き漏れがあると、後で確認に手間取ってしまうので、出す前に一度だけ見直しておくと安心です。書き方で分からない点があれば、去年の見本が共有のフォルダに入っているので、参考にしてください。それでも分からなければ、気軽に聞いてください。",
+  },
+  {
+    id: "easy-dayoff",
+    group: "やさしめ",
+    genre: "連絡",
+    title: "今日はお休みします",
+    body: "おはようございます。朝から熱があり、体がだるいので、申し訳ありませんが今日はお休みをいただきます。病院に行って、診てもらうつもりです。急ぎの仕事は、昨日のうちに終わらせてあります。机の上の青いファイルに、途中までの書類が入っていますが、締め切りは来週なので、そのままにしておいてもらって大丈夫です。何かあれば、夕方なら電話に出られます。ご迷惑をおかけしますが、よろしくお願いします。",
+  },
+  {
+    id: "easy-visitor",
+    group: "やさしめ",
+    genre: "お願い",
+    title: "お客様の案内",
+    body: "今日の午後、取引先のお客様が三名で来られる予定です。受付から連絡があったら、エレベーターの前までお迎えに行き、三階の応接室に案内してください。担当の人は、前の打ち合わせが長引いて、少し遅れるかもしれません。その場合は、お茶を出して、少しお待ちいただくようにお伝えください。応接室のエアコンは、お客様が来られる前につけておいてもらえると助かります。",
+  },
+  {
+    id: "easy-supplies",
+    group: "やさしめ",
+    genre: "お願い",
+    title: "備品の注文",
+    body: "倉庫の備品を確認したところ、コピー用紙と黒のボールペンが残り少なくなっていました。コピー用紙は、あと二箱しかありません。来週は大きな会議があって、資料をたくさん印刷する予定なので、それまでに届くようにしたいです。ついでのときでいいので、いつものお店に注文してもらえますか。届いたら、私が倉庫の決まった棚に並べておきます。他にも足りないものに気付いたら、一緒に注文してしまってください。",
+  },
+  {
+    id: "easy-welcome",
+    group: "やさしめ",
+    genre: "相談",
+    title: "歓迎会のお店",
+    body: "来月から、新しい人が私たちの部署に入ることになりました。そこで、部署の全員で歓迎会を開こうと思っています。日にちは、来月の最初の金曜日を考えています。お店はまだ決まっていないので、行ってみたいお店や、良いお店を知っていれば教えてください。また、苦手な食べ物や、お酒が飲めないなど、気になることがあれば、それも一緒に教えてもらえると助かります。誰もが楽しめる会にしたいので、どうぞよろしくお願いします。",
+  },
+
+  // ===== 本番（正式な仕事の文書） =====
+  {
+    id: "preset-oneline",
+    group: "本番",
+    title: "1行だけ（お試し）",
+    body: "本日の打ち合わせは、14時から第2会議室で行います。",
+  },
+  {
+    id: "preset-mail",
+    group: "本番",
+    title: "社内メール（短い）",
+    body: [
+      "総務部の皆様",
+      "",
+      "お疲れ様です。経理課の山本です。",
+      "10月分の交通費精算は、10月23日（金）17時までに提出をお願いします。",
+      "提出が遅れる場合は、事前にご連絡ください。",
+      "",
+      "よろしくお願いいたします。",
+    ].join("\n"),
+  },
+  {
+    id: "preset-order",
+    group: "本番",
+    title: "注文の確認（英数字まじり）",
+    body: [
+      "株式会社サンプル商事",
+      "購買部　田中様",
+      "",
+      "いつもお世話になっております。",
+      "ご注文いただいた商品について、下記の内容で承りました。",
+      "",
+      "注文番号：ORD-2026-10487",
+      "品番：AB-3021（ブラック）×2個、AB-3022（ホワイト）×1個",
+      "合計金額：14,850円（税込）",
+      "お届け予定日：10月16日（金）",
+      "",
+      "ご不明な点がございましたら、support@example.com までご連絡ください。",
+      "今後ともよろしくお願いいたします。",
+    ].join("\n"),
+  },
+  {
+    id: "preset-notice",
+    group: "本番",
+    title: "会議のご案内（中くらい）",
+    body: [
+      "件名：第3回 業務改善ミーティングのご案内",
+      "",
+      "関係者各位",
+      "",
+      "下記のとおり、業務改善ミーティングを開催いたします。",
+      "ご多忙のところ恐れ入りますが、ご出席くださいますようお願い申し上げます。",
+      "",
+      "日時：2026年11月5日（木）14:00～15:30",
+      "場所：本社2階　第1会議室",
+      "議題：",
+      "　1. 書類のデジタル化の進み具合",
+      "　2. 問い合わせ対応の手順の見直し",
+      "持ち物：事前に配布した資料（A4・3枚）",
+      "",
+      "欠席される場合は、11月2日（月）までに総務課の佐藤（内線：215）へお知らせください。",
+    ].join("\n"),
+  },
+  {
+    id: "preset-minutes",
+    group: "本番",
+    title: "議事録（長い）",
+    body: [
+      "業務改善ミーティング　議事録",
+      "",
+      "日時：2026年10月8日（木）10:00～11:00",
+      "出席者：佐藤（総務）、山本（経理）、鈴木（営業）、高橋（情報システム）",
+      "記録者：佐藤",
+      "",
+      "1．書類のデジタル化について",
+      "・紙で保管している申請書のうち、約6割のスキャンが完了した。",
+      "・残りの書類は、11月末までに完了させる予定。",
+      "・スキャンしたデータのファイル名は「年月日_書類名_部署名」に統一する。",
+      "",
+      "2．問い合わせ対応について",
+      "・電話での問い合わせが1日平均20件あり、担当者の負担が大きい。",
+      "・よくある質問をまとめ、社内ポータルに掲載することになった。",
+      "・掲載する内容の案は、鈴木さんが10月21日（水）までに作成する。",
+      "",
+      "3．次回の予定",
+      "・次回は11月5日（木）14:00から、第1会議室で行う。",
+      "",
+      "以上",
+    ].join("\n"),
+  },
+];
+  </script>
+  <script>
+// 見本と入力した文を照らし合わせるための関数
+// 画面には関係しない「計算だけ」の部分なので、app.js とファイルを分けている
+
+// 比べる前のそろえ方（おすすめ判定）
+// ・改行の種類（\r\n など）をそろえる
+// ・見た目が同じでも中身がちがう文字（「が」と「か＋゛」など）をそろえる
+// ・行の終わりのスペースと、文章の最後の改行は数えない
+// ・それ以外（行の先頭の全角スペース、全角/半角のちがいなど）はそのまま比べる
+function normalizeText(s) {
+  return s
+    .normalize("NFC")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t　]+$/gm, "")
+    .replace(/\n+$/, "");
+}
+
+// 文章の中身から「目印」を作る（同じ中身なら同じ目印になる）
+// 結果を「同じ文章ごと」にまとめるために使う。保存していない貼り付け文章でも使える
+function textKeyOf(body) {
+  const s = normalizeText(body);
+  let h = 0x811c9dc5; // FNV-1a という、短い目印を作るよく知られた計算方法
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `k${h.toString(16)}-${s.length}`;
+}
+
+// 1文字ずつに分ける（絵文字など2つ分の大きさの文字も1文字として数える）
+function toChars(s) {
+  return Array.from(s);
+}
+
+// 「最長共通部分」（両方に同じ順番で出てくる文字をいちばん多く拾う方法）で、
+// 見本と入力の対応を1文字ずつ求める。
+// 返り値: [{op:"eq"|"del"|"ins", ch}]
+//   eq  = 合っていた文字
+//   del = 見本にあるのに入力に無い文字
+//   ins = 見本に無いのに入力した文字
+function diffChars(a, b) {
+  const ops = [];
+
+  // 先頭の合っている部分は計算を省く（長い文章でも速くするため）
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) {
+    ops.push({ op: "eq", ch: a[p] });
+    p++;
+  }
+  const A = a.slice(p);
+  const B = b.slice(p);
+  const n = A.length;
+  const m = B.length;
+  const W = m + 1;
+
+  // dp[i*W+j] = A[i..] と B[j..] で共通に拾える文字の数
+  const dp = new Uint16Array((n + 1) * (m + 1));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i * W + j] = A[i] === B[j]
+        ? dp[(i + 1) * W + j + 1] + 1
+        : Math.max(dp[(i + 1) * W + j], dp[i * W + j + 1]);
+    }
+  }
+
+  // 前からたどる（同じ文字ならできるだけ早く合わせる → 途中でやめた分は最後にまとまる）
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) {
+      ops.push({ op: "eq", ch: A[i] });
+      i++;
+      j++;
+    } else if (dp[(i + 1) * W + j] >= dp[i * W + j + 1]) {
+      ops.push({ op: "del", ch: A[i] });
+      i++;
+    } else {
+      ops.push({ op: "ins", ch: B[j] });
+      j++;
+    }
+  }
+  while (i < n) ops.push({ op: "del", ch: A[i++] });
+  while (j < m) ops.push({ op: "ins", ch: B[j++] });
+  return ops;
+}
+
+// 照らし合わせの結果を「かたまり」に分けて、数字を計算する
+// 返り値:
+//   segments: [{type:"eq", text} | {type:"err", kind, sample, input, line} | {type:"rest", text}]
+//   stats:    数字のまとめ
+// 最後の何文字までの打ち忘れなら「完了」とみなすか（ユーザー決定：3文字）
+const TAIL_TOLERANCE = 3;
+
+// options.lenient = true のときは「ゆるい判定」
+//   全角/半角・大文字/小文字・似た記号・スペースや改行だけのちがいは、ミスに数えない
+function compareTexts(sampleRaw, inputRaw, options = {}) {
+  const sample = toChars(normalizeText(sampleRaw));
+  const input = toChars(normalizeText(inputRaw));
+  const ops = diffChars(sample, input);
+
+  // 連続する eq / それ以外 をまとめる
+  const runs = [];
+  for (const o of ops) {
+    const isEq = o.op === "eq";
+    let last = runs[runs.length - 1];
+    if (!last || last.isEq !== isEq) {
+      last = { isEq, eq: [], del: [], ins: [] };
+      runs.push(last);
+    }
+    last[o.op].push(o.ch);
+  }
+
+  const segments = [];
+  let line = 1;          // 見本の何行目にいるか
+  let correct = 0;       // 合っていた文字数
+  let judged = 0;        // 正確率の分母（合っていた文字 + まちがいの文字）
+  let mistakes = 0;      // まちがいの箇所数
+  let ignored = 0;       // ゆるい判定で数えなかった箇所数
+  let restCount = 0;     // 最後に打たなかった文字数（0 なら「完了」、1 以上なら「途中終了」）
+  let tailMissing = 0;   // 最後の打ち忘れとして「抜け」に数えた文字数
+
+  runs.forEach((r, idx) => {
+    if (r.isEq) {
+      const text = r.eq.join("");
+      segments.push({ type: "eq", text });
+      correct += r.eq.length;
+      judged += r.eq.length;
+      line += countNewlines(text);
+      return;
+    }
+
+    let del = r.del;
+    const ins = r.ins;
+    const isLast = idx === runs.length - 1;
+
+    // 最後のかたまりで見本の文字が余っている → 途中で終えた分（未入力）として分ける
+    // 入力が少しある場合は、その文字数ぶんだけを「まちがい」として扱う
+    // ただし残りが TAIL_TOLERANCE 文字以下なら、最後の打ち忘れとみなして「完了」扱いにし、
+    // 残りの文字は「抜け」のミスとして数える（最後の「。」だけ忘れた、など）
+    let rest = [];
+    if (isLast && del.length > ins.length) {
+      const left = del.length - ins.length;
+      if (left <= TAIL_TOLERANCE) {
+        tailMissing = left;
+      } else {
+        rest = del.slice(ins.length);
+        del = del.slice(0, ins.length);
+      }
+    }
+
+    if (del.length > 0 || ins.length > 0) {
+      const s = del.join("");
+      const t = ins.join("");
+      const names = errorKindNames(s, t);
+      const kind = names ? names.join("・") : t === "" ? "抜け" : s === "" ? "余分" : "ちがい";
+      const soft = Boolean(options.lenient && names && names.every((n) => LENIENT_KINDS.includes(n)));
+      segments.push({ type: "err", kind, soft, sample: s, input: t, line });
+      if (soft) {
+        // 数えないちがいは、見本の文字を正しく打てたものとして扱う
+        ignored++;
+        correct += del.length;
+        judged += del.length;
+      } else {
+        mistakes++;
+        judged += Math.max(del.length, ins.length);
+      }
+      line += countNewlines(s);
+    }
+    if (rest.length > 0) {
+      segments.push({ type: "rest", text: rest.join("") });
+      restCount = rest.length;
+    }
+  });
+
+  return {
+    segments,
+    stats: {
+      sampleChars: sample.length,
+      inputChars: input.length,
+      correct,
+      mistakes,
+      ignored,
+      restCount,
+      tailMissing,
+      completed: restCount === 0,
+      accuracy: judged > 0 ? correct / judged : 0,
+    },
+  };
+}
+
+function countNewlines(s) {
+  let c = 0;
+  for (const ch of s) if (ch === "\n") c++;
+  return c;
+}
+
+// 見た目が似ていてまちがえやすい記号のグループ（全角の形も入れておく）
+const SIMILAR_GROUPS = ["ー-‐−–—―－", "~〜～", "'‘’＇", "\"“”＂"];
+
+function toSimilarBase(s) {
+  return Array.from(s).map((ch) => {
+    const g = SIMILAR_GROUPS.find((x) => x.includes(ch));
+    return g ? g[0] : ch;
+  }).join("");
+}
+
+// カタカナをひらがなにそろえる（ァ〜ヶ）
+function kataToHira(s) {
+  return s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
+// 「どんなちがいか」を調べるための、そろえ方の一覧
+// 上から順に重ねてそろえていき、一致したら、そのちがいの種類が分かる
+const KIND_STEPS = [
+  ["全角/半角", (s) => s.normalize("NFKC")],
+  ["大文字/小文字", (s) => s.toLowerCase()],
+  ["ひらがな/カタカナ", kataToHira],
+  ["似た記号", toSimilarBase],
+  ["スペース・改行", (s) => s.replace(/\s/g, "")],
+];
+
+// ゆるい判定で「ミスに数えない」種類
+const LENIENT_KINDS = ["全角/半角", "大文字/小文字", "似た記号", "スペース・改行"];
+
+// まちがいの種類を調べる。上の一覧のどれかで説明できれば、その名前の配列を返す
+// 説明できないとき（抜け・余分・ちがい）は null
+// 種類は「どんなまちがいが多いか」を知るための目印
+function errorKindNames(sample, input) {
+  const applySteps = (s, steps) => steps.reduce((acc, [, fn]) => fn(acc), s);
+  const same = (steps) => applySteps(sample, steps) === applySteps(input, steps);
+
+  // 何段目までそろえたら一致するか
+  let k = -1;
+  for (let i = 0; i < KIND_STEPS.length; i++) {
+    if (same(KIND_STEPS.slice(0, i + 1))) {
+      k = i;
+      break;
+    }
+  }
+  if (k < 0) return null;
+
+  // 一致するのに本当に必要だったそろえ方だけを、種類として並べる
+  const used = KIND_STEPS.slice(0, k + 1);
+  const names = used
+    .filter((step) => !same(used.filter((x) => x !== step)))
+    .map(([name]) => name);
+  return names.length ? names : null;
+}
+  </script>
+  <script>
+// ===== 文章に鍵をかける・外す（ブラウザの中だけで行う） =====
+// 合言葉そのものは、どこにも送らない・保存しない。
+// 合言葉から、次の2つを作る（どちらも元の合言葉には戻せない）
+//   ・確認用の印（loginProof）… Google に送り、本人かどうかの確認に使う
+//   ・鍵（deriveKey）          … 文章に鍵をかける・外すのに使う。Google には送らない
+// 2つは作り方（混ぜる材料）を変えているので、確認用の印から鍵を作ることはできない。
+
+const SecretBox = {
+  ITERATIONS: 100000, // 合言葉を当てようとする人に時間をかけさせるための、くり返しの回数
+
+  // 合言葉をそろえる（全角/半角のちがい・前後の空白をなくす）
+  normalizePass(pass) {
+    return String(pass || "").normalize("NFKC").trim();
+  },
+
+  // 合言葉に使える文字か（半角の英字・数字・記号だけ。8文字以上）
+  // 全角で入れられても、そろえたあとの半角で見る
+  isAscii(pass) {
+    return /^[\x21-\x7E]+$/.test(this.normalizePass(pass));
+  },
+  isValidNewPass(pass) {
+    return this.isAscii(pass) && this.normalizePass(pass).length >= 8;
+  },
+
+  // 鍵の材料になる、でたらめな文字列を作る
+  randomSalt() {
+    return this.toB64(crypto.getRandomValues(new Uint8Array(16)));
+  },
+
+  toB64(buf) {
+    let s = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  },
+
+  fromB64(b64) {
+    const s = atob(b64);
+    const bytes = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return bytes;
+  },
+
+  // 合言葉と材料から、決まった長さのでたらめなデータを作る（PBKDF2 という決まった作り方）
+  async stretch(pass, salt) {
+    const enc = new TextEncoder();
+    const base = await crypto.subtle.importKey("raw", enc.encode(this.normalizePass(pass)), "PBKDF2", false, ["deriveBits"]);
+    return crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: enc.encode(salt), iterations: this.ITERATIONS, hash: "SHA-256" },
+      base,
+      256
+    );
+  },
+
+  // 確認用の印。材料に利用者名を使う（同じ合言葉でも、人がちがえば印もちがう）
+  async loginProof(name, pass) {
+    // 利用者名のそろえ方は、server-core.js の normalizeUserName と同じにしておくこと
+    const user = String(name || "").normalize("NFKC").trim().toLowerCase();
+    return this.toB64(await this.stretch(pass, "typing-login:" + user));
+  },
+
+  // 文章の鍵。材料は、登録のときに Google 側で決めた keySalt
+  async deriveKey(pass, keySalt) {
+    const bits = await this.stretch(pass, "typing-key:" + keySalt);
+    return crypto.subtle.importKey("raw", bits, "AES-GCM", true, ["encrypt", "decrypt"]);
+  },
+
+  // 鍵を、タブを閉じるまでの間だけ覚えておくための形にする（再読みこみでログインし直さなくて済む）
+  async exportKey(key) {
+    return this.toB64(await crypto.subtle.exportKey("raw", key));
+  },
+  async importKey(b64) {
+    return crypto.subtle.importKey("raw", this.fromB64(b64), "AES-GCM", true, ["encrypt", "decrypt"]);
+  },
+
+  // 鍵をかける。できあがりは「v1.〇〇.〇〇」の形の、読めない文字の並び
+  async encrypt(key, text) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(text));
+    return `v1.${this.toB64(iv)}.${this.toB64(data)}`;
+  },
+
+  // 鍵を外す。鍵がちがう・こわれているときは失敗する
+  async decrypt(key, sealed) {
+    const parts = String(sealed).split(".");
+    if (parts.length !== 3 || parts[0] !== "v1") throw new Error("鍵のかかった形ではありません。");
+    const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: this.fromB64(parts[1]) }, key, this.fromB64(parts[2]));
+    return new TextDecoder().decode(data);
+  },
+};
+  </script>
+  <script>
+// ===== 保存の窓口 =====
+// 画面（app.js）は、保存や読み込みを必ずこの store を通して行う。
+//   ・Google に載せたとき … Google 側のプログラム（Code.gs の api）とやりとりして、スプレッドシートに保存する
+//   ・手元で開いたとき   … api-local.js の「Google のまね」を使う（このPCのブラウザに保存）
+// どちらかは自動で見分ける。
+//
+// 文章のタイトルと本文、記録に控える文章のタイトルは、ここで鍵をかけてから送り、
+// 受け取ったら鍵を外してから画面に渡す（crypto.js）。Google 側には鍵のかかった形しか届かない。
+//
+// 読みこんだ文章と記録は、ここで覚えておく（キャッシュ）。毎回 Google に聞かずに済むので速い。
+
+const IN_GOOGLE = typeof google !== "undefined" && google.script && google.script.run;
+const SESSION_KEY = "typingPractice.session"; // タブを閉じるまでだけ覚える（sessionStorage）
+
+// Google 側（または手元のまね）に頼む
+function callApi(name, payload) {
+  if (!IN_GOOGLE) return LocalApi.call(name, payload);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler((e) => reject(new Error((e && e.message) || String(e))))
+      .api(name, payload);
+  });
+}
+
+// ログインの期限が切れたときのエラーかどうか
+function isSessionExpired(e) {
+  return Boolean(e && String(e.message).includes("SESSION_EXPIRED"));
+}
+
+const store = {
+  inGoogle: Boolean(IN_GOOGLE),
+  session: null, // { name, token, key }  key は文章の鍵
+  texts: [],     // 鍵を外した文章
+  results: [],   // 鍵を外した記録
+  unreadable: 0, // 鍵を外せなかった数（0 でなければ、合言葉の変更を止める）
+  exportedAt: "", // 前回、文章を書き出した日時
+
+  // ===== ログイン =====
+
+  // 同じタブで前にログインしていれば、そのまま続ける
+  async restore() {
+    let saved = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+    } catch (e) {
+      saved = null;
+    }
+    if (!saved) return false;
+    try {
+      this.session = { name: saved.name, token: saved.token, key: await SecretBox.importKey(saved.key) };
+      await this.loadAll();
+      return true;
+    } catch (e) {
+      this.clearSession();
+      return false;
+    }
+  },
+
+  async register(name, pass, registerCode) {
+    const proof = await SecretBox.loginProof(name, pass);
+    const r = await callApi("register", { name, proof, registerCode });
+    await this.startSession(r, pass);
+  },
+
+  async login(name, pass) {
+    const proof = await SecretBox.loginProof(name, pass);
+    const r = await callApi("login", { name, proof });
+    await this.startSession(r, pass);
+  },
+
+  async startSession(r, pass) {
+    const key = await SecretBox.deriveKey(pass, r.keySalt);
+    this.session = { name: r.name, token: r.token, key };
+    await this.rememberSession();
+    await this.loadAll();
+  },
+
+  async rememberSession() {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        name: this.session.name, token: this.session.token, key: await SecretBox.exportKey(this.session.key),
+      }));
+    } catch (e) {
+      // 覚えられなくても、このページを開いている間は使える
+    }
+  },
+
+  // 合言葉を変える。文章と記録のタイトルに、新しい鍵をかけ直してから送る。
+  // 読めない文章が1つでもあれば、壊さないように変更しない
+  async changePassphrase(currentPass, newPass) {
+    if (this.unreadable > 0) {
+      throw new Error("読めない文章や記録があるため、変更できません。管理者に相談してください。");
+    }
+    const name = this.session.name;
+    const keySalt = SecretBox.randomSalt();
+    const newKey = await SecretBox.deriveKey(newPass, keySalt);
+    const reseal = (text) => SecretBox.encrypt(newKey, text);
+    const texts = await Promise.all(this.texts.map(async (t) => ({
+      id: t.id, title: await reseal(t.title), body: await reseal(t.body),
+    })));
+    const results = await Promise.all(this.results.map(async (r) => ({
+      id: r.id, textTitle: await reseal(r.textTitle),
+    })));
+    await callApi("changePass", {
+      token: this.token(),
+      oldProof: await SecretBox.loginProof(name, currentPass),
+      newProof: await SecretBox.loginProof(name, newPass),
+      keySalt, texts, results,
+    });
+    this.session.key = newKey;
+    await this.rememberSession();
+  },
+
+  async logout() {
+    const token = this.session && this.session.token;
+    this.clearSession();
+    if (token) {
+      try {
+        await callApi("logout", { token });
+      } catch (e) {
+        // 期限切れなどで失敗しても、画面側はログアウトできていればよい
+      }
+    }
+  },
+
+  clearSession() {
+    this.session = null;
+    this.texts = [];
+    this.results = [];
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) {
+      // 何もしない
+    }
+  },
+
+  token() {
+    if (!this.session) throw new Error("SESSION_EXPIRED");
+    return this.session.token;
+  },
+
+  async seal(text) {
+    return SecretBox.encrypt(this.session.key, text);
+  },
+
+  // 鍵を外す。外せないもの（こわれている等）は「（読めません）」にする
+  async open(sealed) {
+    try {
+      return await SecretBox.decrypt(this.session.key, sealed);
+    } catch (e) {
+      this.unreadable++;
+      return "（読めません）";
+    }
+  },
+
+  // ログインした直後に、自分の文章と記録をまとめて読みこむ
+  async loadAll() {
+    const token = this.token();
+    this.unreadable = 0;
+    const [texts, results, profile] = await Promise.all([
+      callApi("listTexts", { token }),
+      callApi("listResults", { token }),
+      callApi("profile", { token }),
+    ]);
+    this.exportedAt = profile.exportedAt || "";
+    this.texts = await Promise.all(texts.map(async (t) => ({
+      ...t, title: await this.open(t.title), body: await this.open(t.body),
+    })));
+    this.results = await Promise.all(results.map(async (r) => ({
+      ...r, textTitle: await this.open(r.textTitle),
+    })));
+  },
+
+  // ===== 文章 =====
+
+  // 保存した文章の一覧（新しいものが先）
+  async listTexts() {
+    return [...this.texts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  // 文章を保存する。同じ本文がすでにあれば、新しく作らずにそれを返す
+  // （本文は鍵がかかっていて Google 側では比べられないので、ここで比べる）
+  // 返り値: { text, duplicate }
+  async addText({ title, body }) {
+    const same = this.texts.find((t) => t.body === body);
+    if (same) return { text: same, duplicate: true };
+    const r = await callApi("addText", { token: this.token(), title: await this.seal(title), body: await this.seal(body) });
+    const text = { ...r, title, body };
+    this.texts.push(text);
+    return { text, duplicate: false };
+  },
+
+  async deleteText(id) {
+    await callApi("deleteText", { token: this.token(), id });
+    this.texts = this.texts.filter((t) => t.id !== id);
+  },
+
+  // 控えのファイルの文章をまとめて保存する。同じ本文の文章はとばす
+  // 返り値: { added, skipped }
+  async addTexts(list) {
+    const known = new Set(this.texts.map((t) => t.body));
+    const fresh = list.filter((t) => {
+      if (known.has(t.body)) return false;
+      known.add(t.body);
+      return true;
+    });
+    if (fresh.length > 0) {
+      const sealed = await Promise.all(fresh.map(async (t) => ({
+        title: await this.seal(t.title), body: await this.seal(t.body),
+      })));
+      const rows = await callApi("addTexts", { token: this.token(), texts: sealed });
+      rows.forEach((row, i) => this.texts.push({ ...row, title: fresh[i].title, body: fresh[i].body }));
+    }
+    return { added: fresh.length, skipped: list.length - fresh.length };
+  },
+
+  // 前回の書き出しのあとに保存した文章の数
+  newTextCount() {
+    return this.texts.filter((t) => t.createdAt > this.exportedAt).length;
+  },
+
+  async markExported() {
+    const r = await callApi("markExported", { token: this.token() });
+    this.exportedAt = r.exportedAt;
+  },
+
+  // ===== 練習の結果（文章とは別の箱） =====
+  // 結果には文章そのものは入れず、textKey（文章の中身から作った目印）と、鍵をかけたタイトルの控えだけを入れる。
+
+  // 結果を1件記録する。返り値は記録したもの（id と日時つき）
+  async addResult(data) {
+    const r = await callApi("addResult", {
+      token: this.token(),
+      record: { ...data, textTitle: await this.seal(data.textTitle) },
+    });
+    const record = { ...r, textTitle: data.textTitle };
+    this.results.push(record);
+    return record;
+  },
+
+  // 結果の一覧（新しいものが先）
+  // match を渡すと、その文章の結果だけにしぼる。
+  //   match.textId  … 用意した文章・保存した文章の番号（中身を少し直しても同じ文章としてつながる）
+  //   match.textKey … 文章の中身から作った目印（保存していない貼り付け文章でもつながる）
+  // どちらかが一致すれば「同じ文章」とみなす
+  async listResults(match) {
+    const same = (r) =>
+      !match ||
+      (match.textId && r.textId === match.textId) ||
+      (match.textKey && r.textKey === match.textKey);
+    return this.results
+      .filter(same)
+      .sort((a, b) => b.playedAt.localeCompare(a.playedAt));
+  },
+
+  async deleteResult(id) {
+    await callApi("deleteResult", { token: this.token(), id });
+    this.results = this.results.filter((r) => r.id !== id);
+  },
+};
+  </script>
+  <script>
+// ===== 文章の控え（書き出すファイルの形） =====
+// 保存した文章を、メモ帳でも読める1つのテキストファイルにまとめる。
+// ★このファイルには鍵がかかっていない（読みこみ直せるように、文章をそのまま書く）。
+//
+// 形：
+//   === タイピング練習の文章（2026年11月7日に書き出し） ===
+//
+//   --- タイトル：〇〇 ---
+//   本文
+//
+// 本文の行が「---」や「\」で始まるときは、行の先頭に「\」を足して、区切りとまちがえないようにする。
+
+const BACKUP_HEADER = "=== タイピング練習の文章";
+const BACKUP_TITLE_START = "--- タイトル：";
+const BACKUP_TITLE_END = " ---";
+
+// ファイルの中身が、この形の控えかどうか
+function isBackupText(raw) {
+  return raw.replace(/^﻿/, "").startsWith(BACKUP_HEADER);
+}
+
+// texts = [{ title, body }] を、ファイルの中身（文字列）にする
+function buildBackup(texts, now = new Date()) {
+  const date = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+  const lines = [`${BACKUP_HEADER}（${date}に書き出し） ===`, ""];
+  for (const t of texts) {
+    lines.push(`${BACKUP_TITLE_START}${t.title.replace(/\s*\n\s*/g, " ")}${BACKUP_TITLE_END}`);
+    for (const line of t.body.split("\n")) {
+      lines.push(/^(---|\\)/.test(line) ? `\\${line}` : line);
+    }
+    lines.push("");
+  }
+  return lines.join("\r\n");
+}
+
+// ファイルの中身を [{ title, body }] に戻す
+function parseBackup(raw) {
+  const lines = raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
+  const texts = [];
+  let current = null;
+  for (const line of lines.slice(1)) {
+    if (line.startsWith(BACKUP_TITLE_START) && line.endsWith(BACKUP_TITLE_END)) {
+      const title = line.slice(BACKUP_TITLE_START.length, line.length - BACKUP_TITLE_END.length).trim();
+      current = { title, lines: [] };
+      texts.push(current);
+    } else if (current) {
+      current.lines.push(line.startsWith("\\") ? line.slice(1) : line);
+    }
+  }
+  return texts
+    .map((t) => ({ title: t.title, body: normalizeText(t.lines.join("\n")) }))
+    .filter((t) => t.title && t.body);
+}
+
+// 書き出すファイルの名前
+function backupFileName(now = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `タイピング練習_文章_${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}.txt`;
+}
+  </script>
+  <script>
+"use strict";
+
+// ===== 画面の部品 =====
+const $ = (id) => document.getElementById(id);
+const el = {
+  textSelect: $("textSelect"),
+  randomBtn: $("randomBtn"),
+  saveTextBtn: $("saveTextBtn"),
+  deleteTextBtn: $("deleteTextBtn"),
+  pasteOpenBtn: $("pasteOpenBtn"),
+  judgeSelect: $("judgeSelect"),
+  resultJudge: $("resultJudge"),
+  resultStatus: $("resultStatus"),
+  layoutSelect: $("layoutSelect"),
+  compare: $("compare"),
+  practiceView: $("practiceView"),
+  panes: $("panes"),
+  sample: $("sample"),
+  sampleInfo: $("sampleInfo"),
+  input: $("input"),
+  phase: $("phase"),
+  timer: $("timer"),
+  message: $("message"),
+  resetBtn: $("resetBtn"),
+  finishBtn: $("finishBtn"),
+  resultView: $("resultView"),
+  resultTitle: $("resultTitle"),
+  againBtn: $("againBtn"),
+  compareNote: $("compareNote"),
+  textHistory: $("textHistory"),
+  historyBtn: $("historyBtn"),
+  historyView: $("historyView"),
+  saveStatus: $("saveStatus"),
+  loginView: $("loginView"),
+  loginForm: $("loginForm"),
+  loginHeading: $("loginHeading"),
+  loginNotice: $("loginNotice"),
+  loginName: $("loginName"),
+  loginPass: $("loginPass"),
+  loginPass2: $("loginPass2"),
+  showPass: $("showPass"),
+  passPreview: $("passPreview"),
+  registerPreview: $("registerPreview"),
+  passChangeBtn: $("passChangeBtn"),
+  passDialog: $("passDialog"),
+  passForm: $("passForm"),
+  passNotice: $("passNotice"),
+  passCurrent: $("passCurrent"),
+  backupBtn: $("backupBtn"),
+  backupDialog: $("backupDialog"),
+  backupStatus: $("backupStatus"),
+  backupNotice: $("backupNotice"),
+  backupExportBtn: $("backupExportBtn"),
+  backupManual: $("backupManual"),
+  backupText: $("backupText"),
+  backupFile: $("backupFile"),
+  backupCloseBtn: $("backupCloseBtn"),
+  passNew: $("passNew"),
+  passNew2: $("passNew2"),
+  showNewPass: $("showNewPass"),
+  newPassPreview: $("newPassPreview"),
+  passCancelBtn: $("passCancelBtn"),
+  passSubmitBtn: $("passSubmitBtn"),
+  registerFields: $("registerFields"),
+  registerCode: $("registerCode"),
+  loginSubmit: $("loginSubmit"),
+  switchModeBtn: $("switchModeBtn"),
+  localHint: $("localHint"),
+  versionInfo: $("versionInfo"),
+  userName: $("userName"),
+  logoutBtn: $("logoutBtn"),
+  historyBackBtn: $("historyBackBtn"),
+  historySummary: $("historySummary"),
+  historyList: $("historyList"),
+  stats: $("stats"),
+  restNote: $("restNote"),
+  compareSample: $("compareSample"),
+  compareInput: $("compareInput"),
+  kindSummary: $("kindSummary"),
+  mistakeList: $("mistakeList"),
+  pasteDialog: $("pasteDialog"),
+  pasteTitle: $("pasteTitle"),
+  pasteBody: $("pasteBody"),
+  pasteFile: $("pasteFile"),
+  pasteCount: $("pasteCount"),
+  pasteMessage: $("pasteMessage"),
+  pasteCancelBtn: $("pasteCancelBtn"),
+  pasteUseBtn: $("pasteUseBtn"),
+  pasteSaveBtn: $("pasteSaveBtn"),
+};
+
+const MAX_CHARS = 4000;
+const CUSTOM_ID = "custom";
+
+// ===== 今の状態 =====
+const state = {
+  text: null,         // 練習中の文章 {id, title, body, group}
+  customText: null,   // 貼り付けて、まだ保存していない文章（この画面を開いている間だけ）
+  savedTexts: [],     // 保存した文章（storage.js から読む）
+  judge: "strict",    // 判定。strict=きびしい / lenient=ゆるい
+  phase: "ready",     // ready=打つ前 / typing=計測中 / done=結果表示
+  startTime: 0,
+  timerId: 0,
+  deleteComposing: 0, // 変換中（確定前）に BackSpace / Delete を押した回数
+  deleteConfirmed: 0, // 確定したあとに BackSpace / Delete を押した回数
+  progress: [],       // 打っている途中の進み具合 [{t: 経過秒, len: 入力欄の文字数}]（前半・後半の速さに使う）
+  layout: "sample-left", // 配置。sample-left / input-left / sample-top / input-top
+};
+
+// ===== 小さな設定の保存（配置・判定など。消えても困らないもの） =====
+// 文章や結果のような大事なデータは storage.js で扱う
+function loadSetting(key, fallback) {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+function saveSetting(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    // 保存できなくても練習には関係ないので何もしない
+  }
+}
+
+// ===== 文章の選択・保存・削除 =====
+const GROUPS = [
+  ["custom", "貼り付けた文章（まだ保存していません）"],
+  ["ふつう", "ふつう（日常の文章・気軽に）"],
+  ["長文", "ふつう・長文（約2倍の長さ）"],
+  ["やさしめ", "仕事・やさしめ（記号なし）"],
+  ["本番", "仕事・本番（記号・英数字あり）"],
+  ["saved", "保存した文章"],
+];
+
+// 一覧に出す名前：「【ジャンル】タイトル（○文字）」
+function textLabel(t) {
+  const genre = t.genre ? `【${t.genre}】` : "";
+  return `${genre}${t.title}（${toChars(normalizeText(t.body)).length}文字）`;
+}
+
+// 選べる文章をすべて並べる。group で、一覧のどの見出しに入るかを決める
+function allTexts() {
+  const list = [];
+  if (state.customText) list.push({ ...state.customText, group: "custom" });
+  for (const t of state.savedTexts) list.push({ ...t, group: "saved" });
+  return list.concat(PRESET_TEXTS);
+}
+
+function renderTextSelect() {
+  el.textSelect.innerHTML = "";
+  const texts = allTexts();
+  for (const [group, label] of GROUPS) {
+    const items = texts.filter((t) => t.group === group);
+    if (items.length === 0) continue;
+    const og = document.createElement("optgroup");
+    og.label = label;
+    for (const t of items) {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = textLabel(t);
+      og.appendChild(opt);
+    }
+    el.textSelect.appendChild(og);
+  }
+  if (state.text) el.textSelect.value = state.text.id;
+}
+
+function selectText(id) {
+  const t = allTexts().find((x) => x.id === id) || PRESET_TEXTS[0];
+  state.text = t;
+  el.textSelect.value = t.id;
+  saveSetting("typingPracticeLastText", t.id);
+  // 見本は、比べるときと同じそろえ方をしたものを見せる
+  el.sample.textContent = normalizeText(t.body);
+  el.sample.scrollTop = 0;
+  el.sampleInfo.textContent = `${toChars(normalizeText(t.body)).length}文字`;
+  // 貼り付けたままの文章なら「保存」、保存した文章なら「削除」のボタンを出す
+  el.saveTextBtn.hidden = t.group !== "custom";
+  el.deleteTextBtn.hidden = t.group !== "saved";
+  resetPractice();
+}
+
+// 保存や削除のように Google とやりとりする操作を、失敗しても止まらないように包む。
+// ログインの期限が切れていたらログイン画面へ、それ以外の失敗はメッセージを出す。
+// 成功したら true を返す
+async function guarded(task, failMessage, show = showMessage) {
+  try {
+    await task();
+    return true;
+  } catch (e) {
+    if (isSessionExpired(e)) {
+      showLogin("しばらく時間がたったため、ログインが切れました。もう一度ログインしてください。");
+    } else {
+      show(`${failMessage}（${e.message}）`);
+    }
+    return false;
+  }
+}
+
+// 文章を保存して、保存した文章を選んだ状態にする
+async function saveText(title, body) {
+  showMessage("保存しています…", "info");
+  let result;
+  const ok = await guarded(async () => {
+    result = await store.addText({ title, body });
+  }, "文章を保存できませんでした。");
+  if (!ok) return;
+  const { text, duplicate } = result;
+  state.savedTexts = await store.listTexts();
+  // 保存できたら「まだ保存していない文章」は不要になる
+  if (state.customText && state.customText.body === body) state.customText = null;
+  renderTextSelect();
+  selectText(text.id);
+  showMessage(
+    duplicate
+      ? `同じ文章が「${text.title}」として保存済みだったので、それを選びました。`
+      : `「${text.title}」を保存しました。`,
+    "info"
+  );
+}
+
+// 打っている途中で別の操作をするときの確認
+function confirmLeaveTyping() {
+  if (state.phase !== "typing" || el.input.value === "") return true;
+  return confirm("入力の途中です。やめて、最初からにしますか？");
+}
+
+el.textSelect.addEventListener("change", () => {
+  if (!confirmLeaveTyping()) {
+    el.textSelect.value = state.text.id;
+    return;
+  }
+  selectText(el.textSelect.value);
+});
+
+// おまかせ：今と同じ段階の文章から、今のもの以外を1つ選ぶ
+el.randomBtn.addEventListener("click", () => {
+  if (!confirmLeaveTyping()) return;
+  const group = state.text && state.text.group !== "custom" ? state.text.group : "ふつう";
+  const candidates = allTexts().filter((t) => t.group === group && t.id !== state.text.id);
+  if (candidates.length === 0) {
+    showMessage("同じ段階に、ほかの文章がありません。");
+    return;
+  }
+  selectText(candidates[Math.floor(Math.random() * candidates.length)].id);
+});
+
+el.saveTextBtn.addEventListener("click", () => {
+  if (!state.customText || !confirmLeaveTyping()) return;
+  saveText(state.customText.title, state.customText.body);
+});
+
+el.deleteTextBtn.addEventListener("click", async () => {
+  const t = state.text;
+  if (!t || t.group !== "saved") return;
+  if (!confirm(`保存した文章「${t.title}」を削除しますか？\n（元に戻せません）`)) return;
+  showMessage("削除しています…", "info");
+  const ok = await guarded(() => store.deleteText(t.id), "文章を削除できませんでした。");
+  if (!ok) return;
+  state.savedTexts = await store.listTexts();
+  renderTextSelect();
+  selectText(PRESET_TEXTS[0].id);
+  showMessage(`「${t.title}」を削除しました。`, "info");
+});
+
+// ===== 練習の流れ =====
+function setPhase(phase) {
+  state.phase = phase;
+  el.phase.textContent = {
+    ready: "準備OK（最初の1文字で計測開始）",
+    typing: "計測中",
+    done: "終了",
+  }[phase];
+  el.phase.classList.toggle("typing", phase === "typing");
+}
+
+function resetPractice() {
+  clearInterval(state.timerId);
+  state.startTime = 0;
+  state.deleteComposing = 0;
+  state.deleteConfirmed = 0;
+  state.progress = [];
+  el.input.value = "";
+  el.input.readOnly = false;
+  el.input.scrollTop = 0;
+  el.timer.textContent = "0:00";
+  showMessage("");
+  setPhase("ready");
+  showView("practice");
+  el.input.focus();
+}
+
+function startTyping() {
+  if (state.phase !== "ready") return;
+  state.startTime = performance.now();
+  setPhase("typing");
+  state.timerId = setInterval(updateTimer, 250);
+}
+
+function elapsedSec() {
+  return (performance.now() - state.startTime) / 1000;
+}
+
+function updateTimer() {
+  const s = Math.floor(elapsedSec());
+  el.timer.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+async function finishTyping() {
+  if (state.phase !== "typing") {
+    showMessage("まだ何も入力していません。");
+    return;
+  }
+  if (normalizeText(el.input.value) === "") {
+    showMessage("入力が空のため、終了できません。");
+    return;
+  }
+  const sec = elapsedSec();
+  clearInterval(state.timerId);
+  setPhase("done");
+  el.input.readOnly = true;
+
+  const result = compareTexts(state.text.body, el.input.value, { lenient: state.judge === "lenient" });
+  const st = result.stats;
+  const halves = halfSpeeds(sec, st.inputChars, st.completed);
+  const data = {
+    textKey: textKeyOf(state.text.body),
+    textId: state.text.id,
+    textTitle: state.text.title,     // 文章を消しても分かるように、タイトルを控えておく
+    textGroup: state.text.group,
+    durationSec: round(sec, 1),
+    perMin: round(sec > 0 ? st.correct / (sec / 60) : 0, 1),
+    accuracy: round(st.accuracy * 100, 1),
+    mistakes: st.mistakes,
+    ignored: st.ignored,
+    correct: st.correct,
+    sampleChars: st.sampleChars,
+    inputChars: st.inputChars,
+    restCount: st.restCount,
+    completed: st.completed,         // 最後まで打ったか（残り3文字以下の打ち忘れは完了扱い）
+    tailMissing: st.tailMissing,
+    firstHalfPerMin: halves.first,   // 前半の速さ（目安）
+    secondHalfPerMin: halves.second, // 後半の速さ（目安）
+    deleteComposing: state.deleteComposing,
+    deleteConfirmed: state.deleteConfirmed,
+    judge: state.judge,
+    layout: state.layout,
+  };
+
+  // 結果はすぐに見せて、記録の保存はそのあとで行う（Google への保存は1〜2秒かかるため）
+  const temp = { ...data, id: null, playedAt: new Date().toISOString() };
+  showResult(result, temp);
+  await saveResult(data, temp);
+}
+
+// 記録を保存する。失敗したら「もう一度保存する」ボタンを出す
+async function saveResult(data, temp) {
+  setSaveStatus("記録を保存しています…");
+  try {
+    const record = await store.addResult(data);
+    setSaveStatus("記録を保存しました。");
+    await renderTextHistory(record);
+  } catch (e) {
+    if (isSessionExpired(e)) {
+      setSaveStatus("ログインが切れたため、記録を保存できませんでした。", true);
+    } else {
+      setSaveStatus(`記録を保存できませんでした（${e.message}）。`, true, () => saveResult(data, temp));
+    }
+    await renderTextHistory(temp);
+  }
+}
+
+// 結果画面の「保存しています／保存しました」の表示。retry を渡すと「もう一度保存する」ボタンを出す
+function setSaveStatus(text, isError = false, retry = null) {
+  el.saveStatus.textContent = text;
+  el.saveStatus.classList.toggle("error", isError);
+  if (retry) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "secondary";
+    btn.textContent = "もう一度保存する";
+    btn.addEventListener("click", retry, { once: true });
+    el.saveStatus.appendChild(btn);
+  }
+}
+
+function round(n, digits) {
+  const p = 10 ** digits;
+  return Math.round(n * p) / p;
+}
+
+// kind="info" はお知らせ（緑）、それ以外は注意（赤）
+function showMessage(text, kind) {
+  el.message.textContent = text;
+  el.message.classList.toggle("info", kind === "info");
+}
+
+// 最初の1文字（日本語入力の変換開始も含む）で計測を始める
+el.input.addEventListener("compositionstart", startTyping);
+el.input.addEventListener("input", () => {
+  startTyping();
+  // 進み具合を覚えておく（入力欄の文字が変わるたび）
+  if (state.phase === "typing") {
+    state.progress.push({ t: elapsedSec(), len: toChars(el.input.value).length });
+  }
+});
+
+// 前半と後半の速さ（1分あたりの入力文字数）を出す。
+// 入力した文字数の半分に届いた時刻で、前半と後半に分ける。
+// 変換中の文字も数に入るので、目安の数字。短すぎる文章や途中終了のときは出さない（null）
+function halfSpeeds(totalSec, inputChars, completed) {
+  if (!completed || inputChars < 40 || totalSec <= 0) return { first: null, second: null };
+  const half = inputChars / 2;
+  const mark = state.progress.find((p) => p.len >= half);
+  if (!mark || mark.t <= 0 || mark.t >= totalSec) return { first: null, second: null };
+  return {
+    first: round(half / (mark.t / 60), 1),
+    second: round((inputChars - half) / ((totalSec - mark.t) / 60), 1),
+  };
+}
+
+el.input.addEventListener("keydown", (e) => {
+  const composing = e.isComposing || e.keyCode === 229;
+
+  // 消した回数を数える。変換中は e.key が "Process" になって何のキーか分からないので、
+  // 押した物理キーの名前（e.code）で BackSpace / Delete かを見分ける
+  const isDelete =
+    e.code === "Backspace" || e.code === "Delete" || e.key === "Backspace" || e.key === "Delete";
+  if (isDelete && state.phase === "typing" && !el.input.readOnly) {
+    if (composing) state.deleteComposing++;
+    else state.deleteConfirmed++;
+  }
+
+  // 日本語の変換中のキーは、ここから先では扱わない（IME にまかせる）
+  if (composing) return;
+
+  if (e.key === "Enter" && e.ctrlKey) {
+    e.preventDefault();
+    finishTyping();
+    return;
+  }
+  if (el.input.readOnly) return;
+
+  // Tab キーで次の欄へ移らず、タブ文字を入れる（見本にタブがある文章のため）
+  if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    el.input.setRangeText("\t", el.input.selectionStart, el.input.selectionEnd, "end");
+    startTyping();
+  }
+});
+
+// 貼り付けとドラッグでの文字の持ちこみを止める（打つ練習なので）
+el.input.addEventListener("paste", (e) => {
+  e.preventDefault();
+  showMessage("入力欄には貼り付けできません。");
+});
+el.input.addEventListener("drop", (e) => {
+  e.preventDefault();
+  showMessage("入力欄には文字を持ちこめません。");
+});
+
+el.finishBtn.addEventListener("click", finishTyping);
+el.resetBtn.addEventListener("click", () => {
+  if (!confirmLeaveTyping()) return;
+  resetPractice();
+});
+el.againBtn.addEventListener("click", resetPractice);
+
+// 打っている途中でページを閉じようとしたら確認する
+window.addEventListener("beforeunload", (e) => {
+  if (state.phase === "typing" && el.input.value !== "") {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+// ===== 結果の表示 =====
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1);
+  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+}
+
+function showResult(result, rec) {
+  const st = result.stats;
+  const lenient = rec.judge === "lenient";
+  el.resultTitle.textContent = rec.textTitle;
+  el.resultJudge.textContent = `判定：${JUDGE_LABELS[rec.judge]}`;
+  el.resultStatus.textContent = isCompleted(rec) ? "" : `途中終了（残り${rec.restCount}文字）`;
+  el.resultStatus.hidden = isCompleted(rec);
+
+  const items = [
+    ["入力時間", formatTime(rec.durationSec), "", "最初の1文字〜終了"],
+    ["速さ", Math.round(rec.perMin), "文字/分", "1分あたりの正しい文字数"],
+    ["正確率", rec.accuracy.toFixed(1), "%", "未入力の部分はのぞく"],
+    ["ミス", rec.mistakes, "か所",
+      lenient ? `ほかに数えなかったちがい ${rec.ignored}か所` : "最後に残ったまちがい"],
+    ["正しい文字数", rec.correct, "文字", `見本は${rec.sampleChars}文字`],
+    ["入力文字数", rec.inputChars, "文字", "変換したあとの文字数"],
+    ["消した回数", rec.deleteComposing + rec.deleteConfirmed, "回",
+      `変換中 ${rec.deleteComposing}・確定後 ${rec.deleteConfirmed}`],
+  ];
+  if (rec.firstHalfPerMin != null) {
+    items.push(["前半 → 後半の速さ", `${Math.round(rec.firstHalfPerMin)} → ${Math.round(rec.secondHalfPerMin)}`,
+      "文字/分", "入力した文字数で計算（目安）"]);
+  }
+  el.stats.innerHTML = "";
+  for (const [label, value, unit, note] of items) {
+    const box = document.createElement("div");
+    box.className = "stat";
+    box.innerHTML =
+      '<div class="stat-label"></div><div class="stat-value"><span class="v"></span><span class="stat-unit"></span></div><div class="stat-note"></div>';
+    box.querySelector(".stat-label").textContent = label;
+    box.querySelector(".v").textContent = value;
+    box.querySelector(".stat-unit").textContent = unit;
+    box.querySelector(".stat-note").textContent = note;
+    el.stats.appendChild(box);
+  }
+
+  if (rec.restCount > 0) {
+    el.restNote.textContent =
+      `最後の ${rec.restCount} 文字は未入力です（ミスには数えていません）。「途中終了」として記録しました。`;
+  } else if (rec.tailMissing > 0) {
+    el.restNote.textContent =
+      `最後の ${rec.tailMissing} 文字が打たれていませんでした。打ち忘れとみなして「完了」とし、「抜け」のミスに数えました。`;
+  }
+  el.restNote.hidden = !(rec.restCount > 0 || rec.tailMissing > 0);
+
+  renderCompare(result.segments);
+  renderMistakes(result.segments);
+
+  showView("result");
+  el.resultView.scrollTop = 0;
+  el.againBtn.focus();
+}
+
+// ===== 記録の表示 =====
+const JUDGE_LABELS = { strict: "きびしい", lenient: "ゆるい" };
+const LAYOUT_LABELS = {
+  "sample-left": "左見本", "input-left": "左入力", "sample-top": "上見本", "input-top": "上入力",
+};
+const GROUP_LABELS = { "ふつう": "ふつう", "長文": "長文","やさしめ": "やさしめ", "本番": "本番", saved: "保存", custom: "貼り付け" };
+
+// 最後まで打った記録か（「completed」が無い前の版の記録は、未入力が無ければ完了とみなす）
+function isCompleted(r) {
+  return r.completed !== undefined ? r.completed : !(r.restCount > 0);
+}
+
+// 「10/10（土）14:05」の形
+function formatDate(iso) {
+  const d = new Date(iso);
+  const w = "日月火水木金土"[d.getDay()];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getMonth() + 1}/${d.getDate()}（${w}）${hh}:${mm}`;
+}
+
+function signed(n, digits = 0) {
+  const v = round(n, digits);
+  if (v === 0) return "±0";
+  return (v > 0 ? "+" : "") + v.toFixed(digits);
+}
+
+// 記録の表を作る。columns で出す列を選ぶ
+function buildHistoryTable(records, { currentId, withText, onDelete } = {}) {
+  const cols = [
+    ["日時", (r) => formatDate(r.playedAt)],
+    ["状態", (r) => (isCompleted(r) ? "完了" : `途中終了（残り${r.restCount}）`)],
+    ...(withText ? [["文章", (r) => r.textTitle], ["段階", (r) => GROUP_LABELS[r.textGroup] || ""]] : []),
+    ["文字数", (r) => r.sampleChars, "num"],
+    ["時間", (r) => formatTime(r.durationSec), "num"],
+    ["速さ（文字/分）", (r) => Math.round(r.perMin), "num"],
+    ["前半→後半", (r) => (r.firstHalfPerMin != null
+      ? `${Math.round(r.firstHalfPerMin)}→${Math.round(r.secondHalfPerMin)}` : "－"), "num"],
+    ["正確率", (r) => `${r.accuracy.toFixed(1)}%`, "num"],
+    ["ミス", (r) => r.mistakes, "num"],
+    ["消した回数（変換中・確定後）", (r) => `${r.deleteComposing + r.deleteConfirmed}（${r.deleteComposing}・${r.deleteConfirmed}）`, "num"],
+    ["判定", (r) => JUDGE_LABELS[r.judge] || ""],
+    ["配置", (r) => LAYOUT_LABELS[r.layout] || ""],
+  ];
+  const wrap = document.createElement("div");
+  wrap.className = "table-scroll";
+  const table = document.createElement("table");
+  table.className = "history-table";
+  const head = document.createElement("tr");
+  for (const [label] of cols) {
+    const th = document.createElement("th");
+    th.textContent = label;
+    head.appendChild(th);
+  }
+  if (onDelete) head.appendChild(document.createElement("th"));
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const r of records) {
+    const tr = document.createElement("tr");
+    if (!isCompleted(r)) tr.classList.add("incomplete");
+    if (r.id && r.id === currentId) tr.classList.add("current");
+    for (const [, get, cls] of cols) {
+      const td = document.createElement("td");
+      td.textContent = get(r);
+      if (cls) td.className = cls;
+      tr.appendChild(td);
+    }
+    if (onDelete) {
+      const td = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      btn.textContent = "削除";
+      btn.addEventListener("click", () => onDelete(r));
+      td.appendChild(btn);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// 結果画面：この文章の過去の記録と、前回との比べ
+async function renderTextHistory(rec) {
+  // 貼り付けたまま（保存していない）文章の番号 "custom" は、どれも同じなので使わない
+  const records = await store.listResults({
+    textId: rec.textId !== CUSTOM_ID ? rec.textId : null,
+    textKey: rec.textKey,
+  });
+  // 比べるのは、同じ判定で「完了」した記録どうし
+  // （判定がちがうと数字の意味が変わる。途中終了は最後まで打った記録と比べられないため）
+  const sameJudge = records.filter((r) => r.judge === rec.judge && isCompleted(r));
+  const prev = sameJudge.find((r) => r.id !== rec.id && r.playedAt <= rec.playedAt);
+  const others = sameJudge.filter((r) => r.id !== rec.id);
+
+  if (!isCompleted(rec)) {
+    el.compareNote.textContent = "途中終了のため、前回との比べと自己ベストの判定には入れていません。";
+    el.compareNote.hidden = false;
+  } else if (prev) {
+    const bestBefore = Math.max(...others.map((r) => r.perMin));
+    const parts = [
+      `速さ ${signed(rec.perMin - prev.perMin)}文字/分`,
+      `正確率 ${signed(rec.accuracy - prev.accuracy, 1)}%`,
+      `ミス ${signed(rec.mistakes - prev.mistakes)}か所`,
+    ];
+    el.compareNote.innerHTML = "";
+    el.compareNote.appendChild(document.createTextNode(`前回（${formatDate(prev.playedAt)}）と比べて：${parts.join("、")}`));
+    if (rec.perMin > bestBefore) {
+      const best = document.createElement("span");
+      best.className = "best";
+      best.textContent = "　速さの自己ベストを更新しました！";
+      el.compareNote.appendChild(best);
+    }
+    el.compareNote.hidden = false;
+  } else {
+    el.compareNote.textContent = `この文章を「${JUDGE_LABELS[rec.judge]}」の判定で最後まで練習したのは、今回が初めてです。`;
+    el.compareNote.hidden = false;
+  }
+
+  el.textHistory.innerHTML = "";
+  if (records.length === 0) {
+    el.textHistory.textContent = "記録がありません。";
+    return;
+  }
+  el.textHistory.appendChild(buildHistoryTable(records.slice(0, 10), { currentId: rec.id }));
+  if (records.length > 10) {
+    const more = document.createElement("p");
+    more.className = "legend";
+    more.textContent = `新しいものから10件を表示しています（全部で${records.length}件）。すべては「記録を見る」で見られます。`;
+    el.textHistory.appendChild(more);
+  }
+}
+
+// 記録の一覧の画面
+async function renderHistoryView() {
+  const records = await store.listResults();
+  const totalSec = records.reduce((s, r) => s + r.durationSec, 0);
+  const done = records.filter(isCompleted).length;
+  el.historySummary.textContent = records.length
+    ? `全部で ${records.length} 回（完了 ${done} 回・途中終了 ${records.length - done} 回）、合計 ${formatTime(totalSec)} 練習しました。`
+    : "";
+  el.historyList.innerHTML = "";
+  if (records.length === 0) {
+    el.historyList.textContent = "まだ記録がありません。練習して「終了」を押すと、ここに記録されます。";
+    return;
+  }
+  el.historyList.appendChild(
+    buildHistoryTable(records, {
+      withText: true,
+      onDelete: async (r) => {
+        if (!confirm(`${formatDate(r.playedAt)}「${r.textTitle}」の記録を削除しますか？\n（元に戻せません）`)) return;
+        el.historySummary.textContent = "削除しています…";
+        const ok = await guarded(() => store.deleteResult(r.id), "記録を削除できませんでした。",
+          (m) => { el.historySummary.textContent = m; });
+        if (ok) renderHistoryView();
+      },
+    })
+  );
+}
+
+// 画面の切りかえ（login / practice / result / history）
+function showView(name) {
+  el.loginView.hidden = name !== "login";
+  el.practiceView.hidden = name !== "practice";
+  el.resultView.hidden = name !== "result";
+  el.historyView.hidden = name !== "history";
+  document.body.classList.toggle("logged-out", name === "login");
+}
+
+el.historyBtn.addEventListener("click", async () => {
+  if (!confirmLeaveTyping()) return;
+  if (state.phase === "typing") resetPractice();
+  await renderHistoryView();
+  showView("history");
+  el.historyView.scrollTop = 0;
+});
+el.historyBackBtn.addEventListener("click", resetPractice);
+
+// 見えない文字（スペース・改行・タブ）を、まちがいの中では記号で見せる
+// keepBreaks=true のときは、↵ のあとで本当に改行して、行の形をくずさない
+function visible(text, keepBreaks) {
+  return text
+    .replace(/ /g, "␣")
+    .replace(/\u3000/g, "□")
+    .replace(/\t/g, "→")
+    .replace(/\n/g, keepBreaks ? "↵\n" : "↵");
+}
+
+function addSpan(parent, className, text, n) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  if (n) span.dataset.n = n;
+  parent.appendChild(span);
+}
+
+// 見本と入力を左右に並べて、まちがいの場所に同じ番号をつける
+function renderCompare(segments) {
+  const left = el.compareSample;
+  const right = el.compareInput;
+  left.innerHTML = "";
+  right.innerHTML = "";
+  let n = 0;
+  for (const seg of segments) {
+    if (seg.type === "eq") {
+      left.appendChild(document.createTextNode(seg.text));
+      right.appendChild(document.createTextNode(seg.text));
+    } else if (seg.type === "rest") {
+      addSpan(left, "d-rest", seg.text);
+    } else {
+      n++;
+      // ゆるい判定で数えなかったちがいは、色を付けず点線だけにする
+      const badge = seg.soft ? "err-no soft" : "err-no";
+      addSpan(left, badge, String(n), n);
+      addSpan(right, badge, String(n), n);
+      if (seg.sample) addSpan(left, seg.soft ? "d-soft" : "d-miss", visible(seg.sample, true), n);
+      if (seg.input) addSpan(right, seg.soft ? "d-soft" : "d-extra", visible(seg.input, true), n);
+    }
+  }
+}
+
+function renderMistakes(segments) {
+  const errs = segments.filter((s) => s.type === "err");
+  el.mistakeList.innerHTML = "";
+  el.kindSummary.textContent = "";
+  if (errs.length === 0) {
+    el.mistakeList.textContent = "まちがいはありませんでした。";
+    return;
+  }
+
+  // 種類ごとの数（どんなまちがいが多いかを見るため）。数えなかったものは別にする
+  const counts = new Map();
+  for (const e of errs.filter((x) => !x.soft)) counts.set(e.kind, (counts.get(e.kind) || 0) + 1);
+  const softCount = errs.filter((x) => x.soft).length;
+  const parts = [...counts].map(([k, c]) => `${k} ${c}`);
+  el.kindSummary.textContent =
+    "種類ごとの数：" + (parts.length ? parts.join("、") : "なし") +
+    (softCount ? `　／　数えなかったちがい ${softCount}` : "");
+
+  const table = document.createElement("table");
+  table.className = "mistake-table";
+  table.innerHTML = "<thead><tr><th>番号</th><th>見本の行</th><th>種類</th><th>見本</th><th>入力</th><th>ミスに</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  errs.forEach((e, i) => {
+    const tr = document.createElement("tr");
+    tr.dataset.n = i + 1;
+    const cells = [
+      [String(i + 1), "num"],
+      [`${e.line}行目`, "num"],
+      [e.kind, ""],
+      [e.sample ? visible(e.sample) : "（なし）", ""],
+      [e.input ? visible(e.input) : "（なし）", ""],
+      [e.soft ? "数えない" : "数える", ""],
+    ];
+    for (const [text, cls] of cells) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (cls) td.className = cls;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  el.mistakeList.appendChild(table);
+}
+
+// 同じ番号のもの（見本・入力・一覧の行）をまとめて強調する
+function highlightError(n) {
+  for (const x of el.resultView.querySelectorAll(".active")) x.classList.remove("active");
+  if (!n) return;
+  for (const x of el.resultView.querySelectorAll(`[data-n="${n}"]`)) x.classList.add("active");
+}
+el.resultView.addEventListener("mouseover", (e) => {
+  const t = e.target.closest("[data-n]");
+  highlightError(t ? t.dataset.n : null);
+});
+// 一覧の行を押すと、見本のその場所まで移動する
+el.mistakeList.addEventListener("click", (e) => {
+  const tr = e.target.closest("tr[data-n]");
+  if (!tr) return;
+  highlightError(tr.dataset.n);
+  const mark = el.compareSample.querySelector(`.err-no[data-n="${tr.dataset.n}"]`);
+  if (mark) mark.scrollIntoView({ block: "center", behavior: "smooth" });
+});
+
+// ===== 配置（見本と入力欄の位置）の切り替え =====
+const LAYOUTS = ["sample-left", "input-left", "sample-top", "input-top"];
+
+function applyLayout(layout) {
+  // 前の版で保存した "row" / "column" は、見本が先の形として読みかえる
+  if (layout === "row") layout = "sample-left";
+  if (layout === "column") layout = "sample-top";
+  if (!LAYOUTS.includes(layout)) layout = "sample-left";
+  state.layout = layout;
+  el.panes.dataset.layout = layout;
+  el.layoutSelect.value = layout;
+  el.compare.classList.toggle("input-first", layout.startsWith("input"));
+}
+el.layoutSelect.addEventListener("change", () => {
+  applyLayout(el.layoutSelect.value);
+  saveSetting("typingPracticeLayout", state.layout);
+  if (state.phase !== "done") el.input.focus();
+});
+
+// ===== 判定（きびしい / ゆるい）の切り替え =====
+function applyJudge(judge) {
+  state.judge = judge === "lenient" ? "lenient" : "strict";
+  el.judgeSelect.value = state.judge;
+}
+el.judgeSelect.addEventListener("change", () => {
+  applyJudge(el.judgeSelect.value);
+  saveSetting("typingPracticeJudge", state.judge);
+  if (state.phase !== "done") el.input.focus();
+});
+
+// ===== 自分の文章を貼り付ける =====
+function updatePasteCount() {
+  el.pasteCount.textContent = toChars(normalizeText(el.pasteBody.value)).length.toLocaleString();
+}
+
+el.pasteOpenBtn.addEventListener("click", () => {
+  if (!confirmLeaveTyping()) return;
+  el.pasteMessage.textContent = "";
+  updatePasteCount();
+  el.pasteDialog.showModal();
+  el.pasteBody.focus();
+});
+el.pasteBody.addEventListener("input", updatePasteCount);
+
+// テキストファイルを読み込んで、文章の欄に入れる
+// メモ帳の保存形式は UTF-8（今のふつう）と Shift_JIS（古い形式）があるので、両方を試す
+async function decodeTextFile(file) {
+  const bytes = await file.arrayBuffer();
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (e) {
+    return new TextDecoder("shift_jis").decode(bytes);
+  }
+}
+
+const MAX_TEXT_FILE_BYTES = 1024 * 1024;
+
+async function loadTextFile(file) {
+  el.pasteMessage.textContent = "";
+  if (!file) return;
+  if (file.size > MAX_TEXT_FILE_BYTES) {
+    el.pasteMessage.textContent = "ファイルが大きすぎます（1MBまで）。";
+    return;
+  }
+  const text = await decodeTextFile(file);
+  if (isBackupText(text)) {
+    el.pasteMessage.textContent = "これは文章の控えのファイルです。上の帯の「文章の控え」から読み込んでください。";
+    return;
+  }
+  el.pasteBody.value = normalizeText(text);
+  // タイトルが空なら、ファイル名（.txt を除いたもの）をタイトルにする
+  if (!el.pasteTitle.value.trim()) el.pasteTitle.value = file.name.replace(/\.[^.]+$/, "").slice(0, 60);
+  updatePasteCount();
+  el.pasteBody.focus();
+}
+
+el.pasteFile.addEventListener("change", async () => {
+  await loadTextFile(el.pasteFile.files[0]);
+  el.pasteFile.value = ""; // 同じファイルをもう一度選んでも読み込めるように
+});
+
+// 文章の欄にファイルをドラッグして落とした場合（文字のドラッグはそのまま）
+el.pasteBody.addEventListener("dragover", (e) => {
+  if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+});
+el.pasteBody.addEventListener("drop", (e) => {
+  if (e.dataTransfer.files.length === 0) return;
+  e.preventDefault();
+  loadTextFile(e.dataTransfer.files[0]);
+});
+el.pasteCancelBtn.addEventListener("click", () => el.pasteDialog.close());
+
+// 窓に入れた文章を確かめて {title, body} を返す。だめなら null
+function readPasteForm() {
+  const body = normalizeText(el.pasteBody.value);
+  const len = toChars(body).length;
+  if (len === 0) {
+    el.pasteMessage.textContent = "文章が入っていません。";
+    return null;
+  }
+  if (len > MAX_CHARS) {
+    el.pasteMessage.textContent = `${MAX_CHARS.toLocaleString()}文字以内にしてください。`;
+    return null;
+  }
+  const title = el.pasteTitle.value.trim() || body.split("\n")[0].slice(0, 20);
+  return { title, body };
+}
+
+function clearPasteForm() {
+  el.pasteTitle.value = "";
+  el.pasteBody.value = "";
+  el.pasteDialog.close();
+}
+
+el.pasteUseBtn.addEventListener("click", () => {
+  const form = readPasteForm();
+  if (!form) return;
+  state.customText = { id: CUSTOM_ID, ...form };
+  clearPasteForm();
+  renderTextSelect();
+  selectText(CUSTOM_ID);
+});
+
+el.pasteSaveBtn.addEventListener("click", async () => {
+  const form = readPasteForm();
+  if (!form) return;
+  clearPasteForm();
+  await saveText(form.title, form.body);
+});
+
+// ===== ログイン =====
+// 画面に出す版の番号。Google に貼り直したあと、ここが新しくなっていれば貼り付けは成功
+const APP_VERSION = "2026-11-07b";
+const NEW_PASS_RULE = "合言葉は、半角の英字・数字・記号で8文字以上にしてください。日本語は使えません。";
+
+let registerMode = false; // true のときは「新しく登録」の画面
+
+function setRegisterMode(on) {
+  registerMode = on;
+  el.registerFields.hidden = !on;
+  el.loginHeading.textContent = on ? "新しく登録" : "ログイン";
+  el.loginSubmit.textContent = on ? "登録してはじめる" : "ログイン";
+  el.switchModeBtn.textContent = on ? "登録ずみの方は、こちらからログイン" : "はじめての方は、こちらから新しく登録";
+  setLoginNotice("");
+}
+
+function setLoginNotice(text, kind) {
+  el.loginNotice.textContent = text;
+  el.loginNotice.classList.toggle("info", kind === "info");
+}
+
+// 合言葉の確認表示。入力欄は隠したままにして、別の場所に文字を見せる
+// （入力欄を通常の欄に変えると、日本語入力が働いて予測変換に残るおそれがあるため）
+function updatePreview(checkbox, input, preview) {
+  preview.hidden = !checkbox.checked || input.value === "";
+  preview.textContent = preview.hidden ? "" : `入力中の合言葉：${input.value}`;
+}
+
+function updateLoginPreviews() {
+  updatePreview(el.showPass, el.loginPass, el.passPreview);
+  updatePreview(el.showPass, el.registerCode, el.registerPreview);
+}
+
+function clearLoginFields() {
+  el.loginPass.value = "";
+  el.loginPass2.value = "";
+  el.registerCode.value = "";
+  el.showPass.checked = false;
+  updateLoginPreviews();
+}
+
+function showLogin(notice = "") {
+  clearInterval(state.timerId);
+  store.clearSession();
+  state.savedTexts = [];
+  state.customText = null;
+  clearLoginFields();
+  closePassDialog();
+  if (el.backupDialog.open) el.backupDialog.close();
+  showView("login");
+  setLoginNotice(notice);
+  el.loginName.focus();
+}
+
+// ログインできたら、自分の文章を読みこんで練習画面へ
+function enterApp() {
+  el.userName.textContent = `${store.session.name} さん`;
+  state.savedTexts = store.texts.length ? [...store.texts].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
+  renderTextSelect();
+  // 前回選んでいた文章から始める（無ければ最初の文章）
+  selectText(loadSetting("typingPracticeLastText", PRESET_TEXTS[0].id));
+  const newCount = store.newTextCount();
+  if (newCount > 0) {
+    showMessage(`まだ控えを取っていない文章が${newCount}件あります。上の帯の「文章の控え」から書き出せます。`, "info");
+  }
+}
+
+el.switchModeBtn.addEventListener("click", () => setRegisterMode(!registerMode));
+
+el.showPass.addEventListener("change", updateLoginPreviews);
+el.loginPass.addEventListener("input", updateLoginPreviews);
+el.registerCode.addEventListener("input", updateLoginPreviews);
+
+el.loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = el.loginName.value.trim();
+  const pass = el.loginPass.value;
+  if (!name || !SecretBox.normalizePass(pass)) {
+    setLoginNotice("利用者名と合言葉を入れてください。");
+    return;
+  }
+  if (registerMode) {
+    if (!SecretBox.isValidNewPass(pass)) {
+      setLoginNotice(NEW_PASS_RULE);
+      return;
+    }
+    if (SecretBox.normalizePass(pass) !== SecretBox.normalizePass(el.loginPass2.value)) {
+      setLoginNotice("確認のための合言葉が一致しません。");
+      return;
+    }
+    // みんなが知っている言葉を自分の合言葉にすると、だれでもログインできてしまうので防ぐ
+    // （この確認は画面の中だけで行う。登録する本人は登録用の合言葉をもう知っているので、新しく分かることはない）
+    if (samePass(pass, el.registerCode.value)) {
+      setLoginNotice("自分の合言葉に、登録用の合言葉と同じものは使えません。別の合言葉にしてください。");
+      return;
+    }
+    if (samePass(pass, name)) {
+      setLoginNotice("自分の合言葉に、利用者名と同じものは使えません。別の合言葉にしてください。");
+      return;
+    }
+  }
+  el.loginSubmit.disabled = true;
+  setLoginNotice(registerMode ? "登録しています…" : "ログインしています…", "info");
+  try {
+    if (registerMode) await store.register(name, pass, el.registerCode.value);
+    else await store.login(name, pass);
+    clearLoginFields();
+    setRegisterMode(false);
+    enterApp();
+  } catch (err) {
+    setLoginNotice(err.message);
+  } finally {
+    el.loginSubmit.disabled = false;
+  }
+});
+
+function samePass(a, b) {
+  return SecretBox.normalizePass(a).toLowerCase() === SecretBox.normalizePass(b).toLowerCase();
+}
+
+// ===== 合言葉の変更 =====
+function openPassDialog() {
+  el.passNotice.textContent = "";
+  el.passNotice.classList.remove("info");
+  el.passCurrent.value = "";
+  el.passNew.value = "";
+  el.passNew2.value = "";
+  el.showNewPass.checked = false;
+  updatePreview(el.showNewPass, el.passNew, el.newPassPreview);
+  el.passDialog.showModal();
+  el.passCurrent.focus();
+}
+
+function closePassDialog() {
+  el.passCurrent.value = "";
+  el.passNew.value = "";
+  el.passNew2.value = "";
+  el.newPassPreview.textContent = "";
+  if (el.passDialog.open) el.passDialog.close();
+}
+
+el.passChangeBtn.addEventListener("click", () => {
+  if (!confirmLeaveTyping()) return;
+  if (state.phase === "typing") resetPractice();
+  openPassDialog();
+});
+
+el.showNewPass.addEventListener("change", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
+el.passNew.addEventListener("input", () => updatePreview(el.showNewPass, el.passNew, el.newPassPreview));
+
+el.passCancelBtn.addEventListener("click", closePassDialog);
+
+el.passForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const showNotice = (text, kind) => {
+    el.passNotice.textContent = text;
+    el.passNotice.classList.toggle("info", kind === "info");
+  };
+  const current = el.passCurrent.value;
+  const next = el.passNew.value;
+  if (!SecretBox.normalizePass(current)) {
+    showNotice("今の合言葉を入れてください。");
+    return;
+  }
+  if (!SecretBox.isValidNewPass(next)) {
+    showNotice(NEW_PASS_RULE);
+    return;
+  }
+  if (SecretBox.normalizePass(next) !== SecretBox.normalizePass(el.passNew2.value)) {
+    showNotice("確認のための合言葉が一致しません。");
+    return;
+  }
+  if (samePass(next, store.session.name)) {
+    showNotice("自分の合言葉に、利用者名と同じものは使えません。別の合言葉にしてください。");
+    return;
+  }
+  if (samePass(next, current)) {
+    showNotice("今の合言葉とは別のものにしてください。");
+    return;
+  }
+  el.passSubmitBtn.disabled = true;
+  showNotice("変更しています…", "info");
+  try {
+    await store.changePassphrase(current, next);
+    closePassDialog();
+    showMessage("合言葉を変更しました。次回から新しい合言葉でログインしてください。", "info");
+  } catch (err) {
+    if (isSessionExpired(err)) showLogin("しばらく時間がたったため、ログインが切れました。もう一度ログインしてください。");
+    else showNotice(err.message);
+  } finally {
+    el.passSubmitBtn.disabled = false;
+  }
+});
+
+// ===== 文章の控え（書き出し・まとめて読み込み） =====
+function setBackupNotice(text, kind) {
+  el.backupNotice.textContent = text;
+  el.backupNotice.classList.toggle("info", kind === "info");
+}
+
+function renderBackupStatus() {
+  const total = store.texts.length;
+  const last = store.exportedAt ? formatDate(store.exportedAt) : "まだ書き出していません";
+  const count = store.newTextCount();
+  el.backupStatus.textContent =
+    `保存した文章：${total}件　／　前回の書き出し：${last}` +
+    (count > 0 ? `　／　控えを取っていない文章：${count}件` : "");
+  el.backupExportBtn.disabled = total === 0;
+}
+
+el.backupBtn.addEventListener("click", () => {
+  if (!confirmLeaveTyping()) return;
+  if (state.phase === "typing") resetPractice();
+  setBackupNotice("");
+  el.backupManual.hidden = true;
+  el.backupManual.open = false;
+  el.backupText.value = "";
+  renderBackupStatus();
+  el.backupDialog.showModal();
+});
+
+el.backupCloseBtn.addEventListener("click", () => {
+  el.backupText.value = "";
+  el.backupDialog.close();
+});
+
+// ファイルとして保存する。保存されない環境のために、同じ中身を窓の中にも出す
+function downloadTextFile(name, content) {
+  const url = URL.createObjectURL(new Blob(["﻿", content], { type: "text/plain;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+el.backupExportBtn.addEventListener("click", async () => {
+  const oldestFirst = [...store.texts].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const content = buildBackup(oldestFirst);
+  downloadTextFile(backupFileName(), content);
+  el.backupText.value = content;
+  el.backupManual.hidden = false;
+  setBackupNotice("書き出しました。自分だけが見られる場所にしまったら、共用のPCからは消してください。", "info");
+  // 書き出した日時を覚える。ここで失敗しても、ファイルはもう手元にある
+  const ok = await guarded(() => store.markExported(), "書き出した日時を覚えられませんでした。", setBackupNotice);
+  if (ok) renderBackupStatus();
+});
+
+el.backupFile.addEventListener("change", async () => {
+  const file = el.backupFile.files[0];
+  el.backupFile.value = ""; // 同じファイルをもう一度選んでも読み込めるように
+  if (!file) return;
+  if (file.size > MAX_TEXT_FILE_BYTES) {
+    setBackupNotice("ファイルが大きすぎます（1MBまで）。");
+    return;
+  }
+  const raw = await decodeTextFile(file);
+  if (!isBackupText(raw)) {
+    setBackupNotice("文章の控えのファイルではありません。「文章を書き出す」で作ったファイルを選んでください。");
+    return;
+  }
+  const texts = parseBackup(raw);
+  const usable = texts.filter((t) => toChars(t.body).length <= MAX_CHARS);
+  const tooLong = texts.length - usable.length;
+  if (usable.length === 0) {
+    setBackupNotice(tooLong > 0 ? "読み込める文章がありません（4,000文字までです）。" : "ファイルの中に文章がありません。");
+    return;
+  }
+  setBackupNotice("読み込んでいます…", "info");
+  let result;
+  const ok = await guarded(async () => {
+    result = await store.addTexts(usable);
+  }, "読み込めませんでした。", setBackupNotice);
+  if (!ok) return;
+  state.savedTexts = await store.listTexts();
+  renderTextSelect();
+  renderBackupStatus();
+  const parts = [`${result.added}件を読み込みました`];
+  if (result.skipped > 0) parts.push(`同じ文章${result.skipped}件はとばしました`);
+  if (tooLong > 0) parts.push(`4,000文字を超える${tooLong}件は読み込めませんでした`);
+  setBackupNotice(`${parts.join("。")}。`, "info");
+});
+
+el.logoutBtn.addEventListener("click", async () => {
+  if (!confirmLeaveTyping()) return;
+  await store.logout();
+  showLogin();
+  setLoginNotice("ログアウトしました。", "info");
+});
+
+// ===== はじめに =====
+async function init() {
+  applyLayout(loadSetting("typingPracticeLayout", "sample-left"));
+  applyJudge(loadSetting("typingPracticeJudge", "strict"));
+  el.localHint.hidden = store.inGoogle;
+  el.versionInfo.textContent = `画面の版：${APP_VERSION}${store.inGoogle ? "" : "（このPCで試す版）"}`;
+  // Google 側の版も確かめる（貼り付けがうまくいったかの確認に使う）
+  if (store.inGoogle) {
+    callApi("ping", {})
+      .then((r) => {
+        el.versionInfo.textContent = `画面の版：${APP_VERSION}　／　Google 側の版：${r.version}`;
+      })
+      .catch(() => {});
+  }
+  showView("login");
+  setLoginNotice("読みこんでいます…", "info");
+  // 同じタブで前にログインしていれば、そのまま続ける
+  if (await store.restore()) {
+    enterApp();
+  } else {
+    showLogin();
+  }
+}
+init();
+  </script>
+</body>
+</html>
